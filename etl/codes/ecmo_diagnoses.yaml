@@ -1,0 +1,136 @@
+# ECMO Indication Diagnoses
+# ICD-10-CM codes for conditions leading to ECMO support
+
+version: "1.0"
+description: "Diagnosis codes for ECMO indications"
+last_updated: "2024-01-01"
+
+# Cardiac Indications
+cardiac_indications:
+  cardiogenic_shock:
+    - code: "R57.0"
+      description: "Cardiogenic shock"
+    - code: "I46.9"
+      description: "Cardiac arrest, unspecified"
+    - code: "I50.9"
+      description: "Heart failure, unspecified"
+  
+  post_cardiotomy:
+    - code: "I97.190"
+      description: "Other postprocedural cardiac functional disturbances following cardiac surgery"
+    - code: "I97.131"
+      description: "Postprocedural heart failure following cardiac surgery"
+  
+  acute_myocardial_infarction:
+    - code: "I21.9"
+      description: "Acute myocardial infarction, unspecified"
+    - code: "I21.02"
+      description: "ST elevation (STEMI) myocardial infarction involving left anterior descending coronary artery"
+    - code: "I21.11"
+      description: "ST elevation (STEMI) myocardial infarction involving right coronary artery"
+  
+  congenital_heart_disease:
+    - code: "Q20.9"
+      description: "Congenital malformation of cardiac chambers and connections, unspecified"
+    - code: "Q21.3"
+      description: "Tetralogy of Fallot"
+    - code: "Q23.4"
+      description: "Hypoplastic left heart syndrome"
+
+# Respiratory Indications  
+respiratory_indications:
+  ards:
+    - code: "J80"
+      description: "Acute respiratory distress syndrome"
+    - code: "J95.1"
+      description: "Acute pulmonary insufficiency following thoracic surgery"
+    - code: "J95.2"
+      description: "Acute pulmonary insufficiency following nonthoracic surgery"
+  
+  pneumonia:
+    - code: "J44.0"
+      description: "Chronic obstructive pulmonary disease with acute lower respiratory infection"
+    - code: "J18.9"
+      description: "Pneumonia, unspecified organism"
+    - code: "J12.9"
+      description: "Viral pneumonia, unspecified"
+  
+  pulmonary_embolism:
+    - code: "I26.90"
+      description: "Septic pulmonary embolism without acute cor pulmonale"
+    - code: "I26.99"
+      description: "Other pulmonary embolism without acute cor pulmonale"
+  
+  bridge_to_transplant:
+    - code: "Z94.2"
+      description: "Lung transplant status"
+    - code: "Z94.1"
+      description: "Heart transplant status"
+
+# Neonatal/Pediatric Indications
+neonatal_indications:
+  meconium_aspiration:
+    - code: "P24.00"
+      description: "Meconium aspiration without respiratory symptoms"
+    - code: "P24.01"
+      description: "Meconium aspiration with respiratory symptoms"
+  
+  congenital_diaphragmatic_hernia:
+    - code: "Q79.0"
+      description: "Congenital diaphragmatic hernia"
+  
+  persistent_pulmonary_hypertension:
+    - code: "P29.30"
+      description: "Pulmonary hypertension of newborn"
+  
+  respiratory_distress_syndrome:
+    - code: "P22.0"
+      description: "Respiratory distress syndrome of newborn"
+
+# Trauma/Emergency Indications
+trauma_indications:
+  multiple_trauma:
+    - code: "T07"
+      description: "Unspecified multiple injuries"
+    - code: "S27.0XXA"
+      description: "Traumatic pneumothorax, initial encounter"
+  
+  drowning:
+    - code: "T75.1XXA"
+      description: "Unspecified effects of drowning and nonfatal submersion, initial encounter"
+  
+  smoke_inhalation:
+    - code: "T59.811A"
+      description: "Toxic effect of smoke, accidental (unintentional), initial encounter"
+
+# Sepsis/Infection
+sepsis_indications:
+  septic_shock:
+    - code: "R65.21"
+      description: "Severe sepsis with septic shock"
+    - code: "A41.9"
+      description: "Sepsis, unspecified organism"
+  
+  viral_pneumonia:
+    - code: "J12.9"
+      description: "Viral pneumonia, unspecified"
+    - code: "U07.1"
+      description: "COVID-19"
+
+# ELSO Primary Diagnosis Categories
+elso_categories:
+  cardiac:
+    description: "Primary cardiac failure requiring VA-ECMO"
+    typical_mode: "VA"
+    
+  respiratory:
+    description: "Primary respiratory failure requiring VV-ECMO"
+    typical_mode: "VV"
+    
+  eCPR:
+    description: "Extracorporeal cardiopulmonary resuscitation"
+    typical_mode: "VA"
+    
+  bridge_to_decision:
+    description: "Bridge to decision making"
+    typical_mode: "VA/VV"
