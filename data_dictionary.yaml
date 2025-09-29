@@ -1,0 +1,199 @@
+# TAIWAN-ECMO-CDSS-NEXT Data Dictionary
+# ELSO-aligned data elements for ECMO Clinical Decision Support System
+
+version: "1.0"
+standard: "ELSO Registry v3.4"
+description: "Data dictionary for Taiwan ECMO CDSS aligned with ELSO standards"
+
+# Patient Demographics
+demographics:
+  patient_id:
+    type: string
+    description: "Unique patient identifier (anonymized)"
+    required: true
+    format: "PTXXXX"
+  
+  age_years:
+    type: integer
+    description: "Age in years at ECMO initiation"
+    range: [0, 120]
+    elso_code: "AGE"
+  
+  weight_kg:
+    type: float
+    description: "Patient weight in kilograms"
+    range: [0.5, 300.0]
+    elso_code: "WEIGHT"
+  
+  height_cm:
+    type: float
+    description: "Patient height in centimeters"
+    range: [30.0, 250.0]
+    elso_code: "HEIGHT"
+  
+  gender:
+    type: enum
+    description: "Patient gender"
+    values: ["M", "F", "U"]
+    elso_code: "SEX"
+
+# ECMO Configuration
+ecmo_config:
+  ecmo_type:
+    type: enum
+    description: "Type of ECMO support"
+    values: ["VA", "VV", "VAV"]
+    required: true
+    elso_code: "MODE"
+  
+  cannulation_type:
+    type: enum
+    description: "Cannulation approach"
+    values: ["peripheral", "central", "hybrid"]
+    elso_code: "CANNULATION"
+  
+  flow_lmin:
+    type: float
+    description: "ECMO flow rate in L/min"
+    range: [0.1, 10.0]
+    elso_code: "FLOW"
+  
+  sweep_gas_lmin:
+    type: float
+    description: "Sweep gas flow rate in L/min"
+    range: [0.0, 15.0]
+    elso_code: "SWEEP"
+
+# Clinical Indicators
+clinical_indicators:
+  primary_diagnosis:
+    type: string
+    description: "Primary diagnosis leading to ECMO"
+    elso_code: "PRIM_DIAG"
+  
+  cardiac_arrest:
+    type: boolean
+    description: "Cardiac arrest before ECMO"
+    elso_code: "ARREST"
+  
+  cpr_duration_min:
+    type: integer
+    description: "Duration of CPR in minutes"
+    range: [0, 300]
+    elso_code: "CPR_DUR"
+
+# Laboratory Values
+laboratory:
+  ph_pre:
+    type: float
+    description: "pH before ECMO initiation"
+    range: [6.0, 8.0]
+    elso_code: "PH_PRE"
+  
+  pco2_pre_mmhg:
+    type: float
+    description: "PCO2 before ECMO (mmHg)"
+    range: [10.0, 200.0]
+    elso_code: "PCO2_PRE"
+  
+  po2_pre_mmhg:
+    type: float
+    description: "PO2 before ECMO (mmHg)"
+    range: [20.0, 500.0]
+    elso_code: "PO2_PRE"
+  
+  lactate_pre_mmol:
+    type: float
+    description: "Lactate before ECMO (mmol/L)"
+    range: [0.5, 30.0]
+    elso_code: "LACT_PRE"
+
+# NIRS Data
+nirs:
+  cerebral_so2:
+    type: float
+    description: "Cerebral tissue oxygen saturation (%)"
+    range: [0.0, 100.0]
+    unit: "percentage"
+  
+  renal_so2:
+    type: float
+    description: "Renal tissue oxygen saturation (%)"
+    range: [0.0, 100.0]
+    unit: "percentage"
+  
+  somatic_so2:
+    type: float
+    description: "Somatic tissue oxygen saturation (%)"
+    range: [0.0, 100.0]
+    unit: "percentage"
+
+# Risk Scores
+risk_scores:
+  save_ii_score:
+    type: float
+    description: "SAVE-II score for survival prediction"
+    range: [-20.0, 20.0]
+  
+  resp_ecmo_score:
+    type: float
+    description: "RESP score for respiratory ECMO"
+    range: [-22.0, 15.0]
+  
+  preserve_score:
+    type: float
+    description: "PRESERvE score"
+    range: [0.0, 100.0]
+
+# Outcomes
+outcomes:
+  duration_hours:
+    type: integer
+    description: "ECMO duration in hours"
+    range: [1, 2000]
+    elso_code: "DURATION"
+  
+  survival_to_discharge:
+    type: boolean
+    description: "Survival to hospital discharge"
+    elso_code: "SURV_DC"
+  
+  neurologic_outcome:
+    type: enum
+    description: "Neurological outcome at discharge"
+    values: ["normal", "mild_deficit", "moderate_deficit", "severe_deficit", "death"]
+    elso_code: "NEURO"
+
+# Cost Data
+economics:
+  total_cost_usd:
+    type: float
+    description: "Total hospital cost in USD"
+    range: [0.0, 1000000.0]
+  
+  daily_cost_usd:
+    type: float
+    description: "Daily ECMO cost in USD"
+    range: [0.0, 10000.0]
+  
+  qaly_gained:
+    type: float
+    description: "Quality-adjusted life years gained"
+    range: [0.0, 50.0]
+
+# Metadata
+metadata:
+  created_at:
+    type: datetime
+    description: "Record creation timestamp"
+    format: "ISO8601"
+  
+  updated_at:
+    type: datetime
+    description: "Last update timestamp"
+    format: "ISO8601"
+  
+  data_source:
+    type: enum
+    description: "Source of data"
+    values: ["ehr", "manual_entry", "registry", "device"]

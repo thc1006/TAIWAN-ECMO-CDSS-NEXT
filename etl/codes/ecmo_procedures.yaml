@@ -1,0 +1,68 @@
+# ECMO Procedure Codes
+# ICD-10-PCS and CPT codes for ECMO procedures
+
+version: "1.0"
+description: "ECMO procedure codes for clinical identification"
+last_updated: "2024-01-01"
+
+# ICD-10-PCS Codes
+icd10_pcs:
+  ecmo_initiation:
+    - code: "5A1522F"
+      description: "Extracorporeal membrane oxygenation, continuous, 24-96 consecutive hours"
+    - code: "5A1532F" 
+      description: "Extracorporeal membrane oxygenation, continuous, greater than 96 consecutive hours"
+    - code: "5A1522G"
+      description: "Extracorporeal membrane oxygenation, intermittent, less than 6 hours per day"
+  
+  cannulation:
+    - code: "02HV33Z"
+      description: "Insertion of infusion device into superior vena cava, percutaneous approach"
+    - code: "02HN33Z"
+      description: "Insertion of infusion device into right atrium, percutaneous approach"
+    - code: "03HY33Z"
+      description: "Insertion of infusion device into upper artery, percutaneous approach"
+
+# CPT Codes  
+cpt:
+  ecmo_management:
+    - code: "33946"
+      description: "Extracorporeal membrane oxygenation (ECMO)/extracorporeal life support (ECLS) provided by physician; daily management, each day, veno-venous"
+    - code: "33947"
+      description: "Extracorporeal membrane oxygenation (ECMO)/extracorporeal life support (ECLS) provided by physician; daily management, each day, veno-arterial"
+    - code: "33948"
+      description: "Extracorporeal membrane oxygenation (ECMO)/extracorporeal life support (ECLS) provided by physician; daily management, each day, veno-arterial-venous"
+  
+  cannulation_cpt:
+    - code: "33951"
+      description: "Insertion of peripheral (arterial and/or venous) cannula(e), percutaneous, birth through 5 years of age"
+    - code: "33952"
+      description: "Insertion of peripheral (arterial and/or venous) cannula(e), percutaneous, 6 years and older"
+    - code: "33953"
+      description: "Insertion of peripheral (arterial and/or venous) cannula(e), open, birth through 5 years of age"
+    - code: "33954"
+      description: "Insertion of peripheral (arterial and/or venous) cannula(e), open, 6 years and older"
+
+# SNOMED-CT Codes
+snomed_ct:
+  procedures:
+    - code: "233573008"
+      description: "Extracorporeal membrane oxygenation"
+    - code: "786451004"
+      description: "Veno-venous extracorporeal membrane oxygenation"
+    - code: "786452006"
+      description: "Veno-arterial extracorporeal membrane oxygenation"
+  
+  devices:
+    - code: "426129001"
+      description: "Extracorporeal membrane oxygenator"
+    - code: "257318008"
+      description: "Extracorporeal circulation equipment"
+
+# Taiwan NHI Codes (if applicable)
+taiwan_nhi:
+  procedures:
+    - code: "68021C"
+      description: "體外膜肺氧合術 (ECMO)"
+    - code: "68022C" 
+      description: "體外膜肺氧合術管路置放"
