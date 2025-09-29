@@ -1,0 +1,496 @@
+{
+  "extraction_date": "2025-09-30",
+  "total_files_analyzed": 13,
+
+  "system_architecture": {
+    "components": {
+      "count": 13,
+      "categories": [
+        "data_processing",
+        "machine_learning",
+        "system_architecture",
+        "evaluation_validation",
+        "deployment_monitoring"
+      ],
+      "stack": {
+        "data_processing": [
+          {
+            "component": "數據提取器",
+            "tech": "Python, Pandas, SQL",
+            "output": "清洗後的標準化數據集"
+          },
+          {
+            "component": "特徵工程模組",
+            "tech": "Scikit-learn, Feature-engine",
+            "output": "高質量特徵矩陣"
+          },
+          {
+            "component": "數據標準化器",
+            "tech": "StandardScaler, MinMaxScaler",
+            "output": "一致性數據格式"
+          }
+        ],
+        "machine_learning": [
+          {
+            "component": "深度學習模型",
+            "tech": "TensorFlow, PyTorch",
+            "output": "高精度預測模型"
+          },
+          {
+            "component": "集成學習器",
+            "tech": "XGBoost, RandomForest",
+            "output": "魯棒性分類器"
+          },
+          {
+            "component": "時間序列分析器",
+            "tech": "LSTM, ARIMA",
+            "output": "實時預警系統"
+          }
+        ],
+        "system_architecture": [
+          {
+            "component": "API服務層",
+            "tech": "FastAPI, Flask",
+            "output": "RESTful API服務"
+          },
+          {
+            "component": "前端界面",
+            "tech": "React, Vue.js",
+            "output": "用戶友好界面"
+          },
+          {
+            "component": "數據庫設計",
+            "tech": "PostgreSQL, MongoDB",
+            "output": "高效數據存儲"
+          }
+        ],
+        "evaluation_validation": [
+          {
+            "component": "模型評估器",
+            "tech": "Sklearn.metrics, MLflow",
+            "output": "模型性能報告"
+          },
+          {
+            "component": "臨床驗證框架",
+            "tech": "Statistical analysis",
+            "output": "臨床有效性證據"
+          }
+        ],
+        "deployment_monitoring": [
+          {
+            "component": "持續監控系統",
+            "tech": "Prometheus, Grafana",
+            "output": "系統穩定性保證"
+          }
+        ]
+      }
+    },
+    "data_sources": {
+      "MIMIC-IV": {
+        "url": "https://physionet.org/content/mimiciv/",
+        "description": "包含65,000+重症患者數據，含ECMO病例",
+        "access": "需要申請權限",
+        "formats": ["CSV", "PostgreSQL"]
+      },
+      "ELSO_Registry": {
+        "url": "https://www.elso.org/registry.aspx",
+        "description": "全球最大ECMO患者數據庫",
+        "access": "研究合作申請",
+        "key_variables": [
+          "patient_demographics",
+          "ecmo_config",
+          "outcomes"
+        ],
+        "version": "v3.4"
+      },
+      "ANZICS": {
+        "url": "https://www.anzics.org/ecmo-registry/",
+        "description": "澳紐ECMO數據庫",
+        "focus": "雙國家數據集"
+      }
+    }
+  },
+
+  "development_phases": {
+    "count": 4,
+    "total_duration": "12_months",
+    "phases": [
+      {
+        "phase": "Phase 1: 數據收集與準備",
+        "duration": "1-3個月",
+        "tasks": "整合MIMIC-IV、ELSO等數據庫；數據清理和特徵工程",
+        "deliverables": "清洗後的標準化數據集；數據分析報告"
+      },
+      {
+        "phase": "Phase 2: 模型開發",
+        "duration": "4-8個月",
+        "tasks": "開發預測模型；建立風險評估算法；優化模型性能",
+        "deliverables": "ECMO預測模型；風險評估工具；性能評估報告"
+      },
+      {
+        "phase": "Phase 3: 驗證與測試",
+        "duration": "9-11個月",
+        "tasks": "外部數據驗證；臨床專家評估；系統整合測試",
+        "deliverables": "模型驗證報告；臨床試驗結果；系統穩定性測試"
+      },
+      {
+        "phase": "Phase 4: 部署與應用",
+        "duration": "12個月",
+        "tasks": "實際臨床環境部署；用戶培訓；持續監控和改進",
+        "deliverables": "臨床決策支持系統；用戶手冊；維護協議"
+      }
+    ]
+  },
+
+  "research_directions": {
+    "count": 5,
+    "directions": [
+      {
+        "direction": "ECMO患者存活預測",
+        "methods": "深度神經網絡、梯度提升樹、支持向量機",
+        "data_requirements": "患者基本信息、生理參數、治療歷程、結果指標",
+        "expected_impact": "提高患者存活率、減少醫療風險、改善預後評估",
+        "expected_auc": 0.75
+      },
+      {
+        "direction": "併發症早期預警",
+        "methods": "時間序列異常檢測、實時監測算法",
+        "data_requirements": "連續監測數據、實驗室檢查、影像資料",
+        "expected_impact": "降低併發症發生率、提升醫療安全、優化監護流程"
+      },
+      {
+        "direction": "治療決策優化",
+        "methods": "強化學習、多目標優化",
+        "data_requirements": "治療方案、藥物使用、設備參數、臨床指引",
+        "expected_impact": "個性化治療方案、提升治療效果、減少醫療錯誤"
+      },
+      {
+        "direction": "資源配置改善",
+        "methods": "運籌學、排隊理論、預測分析",
+        "data_requirements": "醫院容量、設備使用率、人力資源、患者流量",
+        "expected_impact": "優化資源利用、降低醫療成本、提升服務效率"
+      },
+      {
+        "direction": "成本效益分析",
+        "methods": "馬可夫模型、生存分析、經濟評估",
+        "data_requirements": "醫療費用、住院天數、生活質量、長期追蹤",
+        "expected_impact": "支持政策制定、改善醫療經濟、促進技術推廣"
+      }
+    ]
+  },
+
+  "work_packages": {
+    "WP0": {
+      "title": "Data Dictionary",
+      "objective": "Align to ELSO; complete data_dictionary.yaml",
+      "deliverables": [
+        "data_dictionary.yaml",
+        "etl/codes/ for diagnoses/complications/procedures"
+      ],
+      "standards": "ELSO Registry v3.4"
+    },
+    "WP1": {
+      "title": "NIRS Model",
+      "objective": "Build explainable NIRS+EHR models; VA/VV separated",
+      "requirements": [
+        "class weights for imbalance",
+        "calibration curves",
+        "APACHE-stratified metrics"
+      ],
+      "algorithms": [
+        "RandomForest",
+        "XGBoost",
+        "DeepNeuralNetwork"
+      ],
+      "target_features": [
+        "age",
+        "apache_score",
+        "ecmo_type",
+        "pre_arrest"
+      ]
+    },
+    "WP2": {
+      "title": "Cost-Effectiveness",
+      "objective": "Compute CER/ICER/CEAC by risk quintile",
+      "methods": [
+        "馬可夫模型",
+        "生存分析",
+        "經濟評估"
+      ],
+      "parameters": [
+        "local LOS",
+        "cost",
+        "survival"
+      ],
+      "outputs": [
+        "CER (Cost-Effectiveness Ratio)",
+        "ICER (Incremental CER)",
+        "CEAC (Cost-Effectiveness Acceptability Curve)"
+      ]
+    },
+    "WP3": {
+      "title": "VR Training",
+      "objective": "Define VR scenarios and metrics",
+      "deliverables": [
+        "study protocol",
+        "sample size calculation",
+        "power analysis"
+      ],
+      "metrics": [
+        "team performance",
+        "clinical outcomes",
+        "training effectiveness"
+      ]
+    },
+    "WP4": {
+      "title": "SMART on FHIR Stub",
+      "objective": "Prepare SMART App Launch stub",
+      "requirements": [
+        "OAuth2 scopes",
+        "EHR embedding steps",
+        "FHIR R4 compatibility"
+      ],
+      "standards": "SMART on FHIR"
+    },
+    "SQL": {
+      "title": "MIMIC-IV ECMO Identification",
+      "objective": "Run mimic_ecmo_itemids.sql then identify_ecmo.sql",
+      "database": "MIMIC-IV Demo",
+      "output": "ECMO episode table"
+    }
+  },
+
+  "standards_compliance": {
+    "data_standards": [
+      "ELSO Registry v3.4",
+      "FHIR R4",
+      "SMART on FHIR"
+    ],
+    "regulatory": [
+      "FDA Non-Device CDS principles",
+      "IMDRF SaMD (Software as Medical Device)",
+      "IEC 62304 (Medical device software)",
+      "ISO 14971 (Risk management)"
+    ],
+    "clinical_coding": [
+      "ICD-10-CM",
+      "ICD-10-PCS",
+      "CPT",
+      "SNOMED-CT"
+    ],
+    "principles": [
+      "advice≠orders",
+      "show logic/inputs",
+      "clinician can independently review",
+      "Research/Education only"
+    ]
+  },
+
+  "expected_outcomes": {
+    "academic": {
+      "journal_papers": "3-5篇",
+      "conference_papers": "5-8篇",
+      "open_source": "代碼和數據集釋出"
+    },
+    "clinical_value": {
+      "survival_improvement": "5-10%",
+      "complication_reduction": "15-20%",
+      "cost_reduction": "10-15%",
+      "resource_optimization": "20-30%"
+    },
+    "international_collaboration": [
+      "與ELSO建立數據共享協議",
+      "參與國際ECMO研究網絡",
+      "推動亞太地區ECMO標準化"
+    ]
+  },
+
+  "risk_management": {
+    "technical_risks": [
+      {
+        "risk": "數據質量問題",
+        "mitigation": "建立嚴格的數據驗證機制"
+      },
+      {
+        "risk": "模型泛化性不足",
+        "mitigation": "多中心驗證和持續學習"
+      },
+      {
+        "risk": "系統整合困難",
+        "mitigation": "採用微服務架構和標準API"
+      }
+    ],
+    "clinical_risks": [
+      {
+        "risk": "醫生接受度低",
+        "mitigation": "強化培訓和逐步部署"
+      },
+      {
+        "risk": "法規審批延遲",
+        "mitigation": "提前與衛生主管機關溝通"
+      },
+      {
+        "risk": "患者隱私顧慮",
+        "mitigation": "嚴格遵循數據保護法規"
+      }
+    ]
+  },
+
+  "resources": {
+    "personnel": {
+      "senior_ai_researchers": "2-3名",
+      "clinical_consultants": "2-3名",
+      "software_engineers": "3-4名",
+      "data_scientists": "2-3名",
+      "project_manager": "1名"
+    },
+    "technical": {
+      "cloud_compute": "GPU集群用於模型訓練",
+      "data_storage": "安全的醫療數據存儲方案",
+      "software_licenses": "開發工具和數據庫授權"
+    },
+    "budget": {
+      "total": "新台幣800萬-1200萬元",
+      "breakdown": {
+        "personnel": "60%",
+        "equipment": "20%",
+        "other": "20%"
+      }
+    }
+  },
+
+  "privacy_security": {
+    "data_deidentification": "HIPAA-compliant anonymization",
+    "encryption": "AES-256 for data at rest",
+    "access_control": "Role-based authentication",
+    "audit_logging": "Complete activity tracking"
+  },
+
+  "explainability": {
+    "SHAP": "特徵重要性分析",
+    "LIME": "局部可解釋性",
+    "attention_visualization": "深度學習注意力機制",
+    "clinical_narratives": "自然語言解釋生成"
+  },
+
+  "model_benchmarks": {
+    "comparison_systems": [
+      {
+        "system": "APACHE II",
+        "reported_auc": "0.68-0.72"
+      },
+      {
+        "system": "SAPS-3",
+        "reported_auc": "0.66-0.70"
+      },
+      {
+        "system": "SAVE score",
+        "type": "ECMO-specific"
+      },
+      {
+        "system": "RESP score",
+        "type": "ECMO-specific"
+      }
+    ],
+    "target_performance": {
+      "survival_prediction_auc": 0.75,
+      "validation": "5-fold cross-validation",
+      "external_validation": "台灣醫學中心歷史數據",
+      "sample_size": 1000
+    }
+  },
+
+  "deployment_architecture": {
+    "frontend": {
+      "technology": ["React", "Vue.js"],
+      "features": [
+        "real_time_dashboard",
+        "alert_system",
+        "reporting"
+      ]
+    },
+    "backend": {
+      "technology": ["Python", "FastAPI"],
+      "components": [
+        "ml_inference",
+        "data_pipeline",
+        "api_gateway"
+      ]
+    },
+    "database": {
+      "technology": ["PostgreSQL", "MongoDB"],
+      "features": [
+        "patient_data",
+        "model_predictions",
+        "audit_logs"
+      ]
+    }
+  },
+
+  "continuous_learning": {
+    "mechanisms": [
+      "模型性能監控",
+      "數據漂移檢測",
+      "定期模型更新"
+    ]
+  },
+
+  "validation_protocol": {
+    "retrospective": {
+      "data_source": "台灣醫學中心歷史數據",
+      "sample_size": 1000,
+      "metrics": ["sensitivity", "specificity", "ppv", "npv"]
+    },
+    "prospective_pilot": {
+      "duration": "3個月",
+      "setting": "重症監護病房",
+      "endpoint": "預測準確性和臨床實用性"
+    }
+  },
+
+  "key_features": {
+    "patient_demographics": [
+      "age",
+      "sex",
+      "BMI",
+      "comorbidities"
+    ],
+    "physiological_parameters": [
+      "blood_pressure",
+      "heart_rate",
+      "oxygenation_index",
+      "lactate_level"
+    ],
+    "ecmo_parameters": [
+      "type(VA/VV)",
+      "flow_rate",
+      "duration"
+    ],
+    "outcome_indicators": [
+      "hospital_mortality",
+      "complications",
+      "length_of_stay"
+    ]
+  },
+
+  "project_positioning": "三合一：Navigator（床邊風險）＋ Planner（成本/容量）＋ VR Studio（團隊訓練）",
+
+  "keywords": [
+    "ecmo",
+    "critical-care",
+    "cdss",
+    "fhir",
+    "smart-on-fhir",
+    "mimic-iv",
+    "elso",
+    "anzics",
+    "clinical-ml",
+    "explainable-ai",
+    "cost-effectiveness",
+    "qaly",
+    "vr-simulation",
+    "open-science",
+    "taiwan",
+    "health-it"
+  ]
+}

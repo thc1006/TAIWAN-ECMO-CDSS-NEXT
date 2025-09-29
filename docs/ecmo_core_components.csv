@@ -1,0 +1,13 @@
+﻿組件類別,核心組件,技術棧,預期產出
+數據處理,數據提取器,"Python, Pandas, SQL",清洗後的標準化數據集
+數據處理,特徵工程模組,"Scikit-learn, Feature-engine",高質量特徵矩陣
+數據處理,數據標準化器,"StandardScaler, MinMaxScaler",一致性數據格式
+機器學習,深度學習模型,"TensorFlow, PyTorch",高精度預測模型
+機器學習,集成學習器,"XGBoost, RandomForest",魯棒性分類器
+機器學習,時間序列分析器,"LSTM, ARIMA",實時預警系統
+系統架構,API服務層,"FastAPI, Flask",RESTful API服務
+系統架構,前端界面,"React, Vue.js",用戶友好界面
+系統架構,數據庫設計,"PostgreSQL, MongoDB",高效數據存儲
+評估驗證,模型評估器,"Sklearn.metrics, MLflow",模型性能報告
+評估驗證,臨床驗證框架,Statistical analysis,臨床有效性證據
+部署監控,持續監控系統,"Prometheus, Grafana",系統穩定性保證

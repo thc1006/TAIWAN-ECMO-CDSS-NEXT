@@ -1,0 +1,281 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║                   TAIWAN-ECMO-CDSS-NEXT TEST COVERAGE ANALYSIS                 ║
+║                              Analysis Date: 2025-09-30                         ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ EXECUTIVE SUMMARY                                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Current Coverage:      5.9% (CRITICALLY LOW)                                │
+│ Tests Existing:        10 (basic imports/file checks only)                  │
+│ Tests Needed:          163 (for 80% coverage)                               │
+│ Total Lines of Code:   3,190 lines                                          │
+│ Implementation Time:   8 weeks (with dedicated resources)                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ MODULE COVERAGE BREAKDOWN                                                    │
+├──────────────────────────────┬──────────┬─────────┬──────────┬─────────────┤
+│ Module                       │ Lines    │ Tests   │ Coverage │ Status      │
+├──────────────────────────────┼──────────┼─────────┼──────────┼─────────────┤
+│ tests/test_basic_functionality.py  190 │   10    │  100%    │ ✅ Complete │
+│ etl/elso_processor.py        │   215    │    1    │   ~5%    │ ⚠️ CRITICAL │
+│ nirs/risk_models.py          │   506    │    1    │   ~5%    │ ⚠️ CRITICAL │
+│ econ/cost_effectiveness.py   │   532    │    1    │   ~5%    │ ⚠️ CRITICAL │
+│ econ/dashboard.py            │   747    │    0    │    0%    │ ⚠️ CRITICAL │
+│ vr-training/training_protocol.py   700 │    1    │   ~5%    │ ⚠️ CRITICAL │
+│ etl/elso_mapper.py           │    22    │    0    │    0%    │ 🟠 HIGH     │
+│ nirs/features.py             │    15    │    0    │    0%    │ 🟡 MEDIUM   │
+│ sql/identify_ecmo.sql        │    ?     │    1    │    0%    │ 🟠 HIGH     │
+├──────────────────────────────┴──────────┴─────────┴──────────┴─────────────┤
+│ TOTAL:                       │  3,190   │   15    │   5.9%   │             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ EXISTING TEST INVENTORY (10 TESTS)                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ ✅ test_data_dictionary_loading          (YAML loading)                     │
+│ ✅ test_code_lists_loading               (ECMO codes)                       │
+│ ✅ test_elso_processor_import            (ETL import only)                  │
+│ ✅ test_nirs_risk_model_import           (Model import only)                │
+│ ✅ test_cost_effectiveness_import        (Economics import only)            │
+│ ✅ test_vr_training_import               (VR training import only)          │
+│ ✅ test_sql_file_exists                  (SQL file check only)              │
+│ ✅ test_requirements_file_exists         (Dependencies check)               │
+│ ✅ test_environment_template_exists      (Environment config)               │
+│ ✅ test_basic_data_processing            (Trivial pandas ops)               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CRITICAL TEST GAPS (MISSING FUNCTIONALITY TESTS)                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ ⚠️  NIRS RISK MODELS (nirs/risk_models.py)                                  │
+│     ❌ Model training (train_model)                                         │
+│     ❌ Risk prediction (predict_risk)                                       │
+│     ❌ SHAP explanations (explain_prediction)                               │
+│     ❌ Model calibration (plot_calibration)                                 │
+│     ❌ Feature engineering (prepare_nirs_features)                          │
+│     ❌ Risk score calculations (calculate_risk_scores)                      │
+│     → RISK: Incorrect predictions threaten patient safety                   │
+│                                                                              │
+│ ⚠️  COST-EFFECTIVENESS (econ/cost_effectiveness.py)                         │
+│     ❌ ECMO cost calculations (calculate_ecmo_costs)                        │
+│     ❌ QALY calculations (calculate_qaly_outcomes)                          │
+│     ❌ ICER calculations (calculate_icer)                                   │
+│     ❌ Budget impact analysis (budget_impact_analysis)                      │
+│     ❌ Sensitivity analysis (sensitivity_analysis)                          │
+│     → RISK: Incorrect budget projections and policy decisions               │
+│                                                                              │
+│ ⚠️  ETL PIPELINE (etl/elso_processor.py)                                    │
+│     ❌ Data validation (validate_patient_data)                              │
+│     ❌ Data transformation (transform_ecmo_data)                            │
+│     ❌ Risk score calculations (calculate_risk_scores)                      │
+│     ❌ ELSO export (export_to_elso_format)                                  │
+│     → RISK: Data corruption and invalid registry submissions                │
+│                                                                              │
+│ ⚠️  DASHBOARD UI (econ/dashboard.py)                                        │
+│     ❌ Risk assessment workflow (show_risk_assessment)                      │
+│     ❌ Cost-effectiveness workflow (show_cost_effectiveness)                │
+│     ❌ Analytics dashboard (show_analytics)                                 │
+│     ❌ Input validation and error handling                                  │
+│     → RISK: Application crashes and poor user experience                    │
+│                                                                              │
+│ ⚠️  SQL QUERIES (sql/identify_ecmo.sql)                                     │
+│     ❌ Query execution against MIMIC-IV Demo                                │
+│     ❌ ECMO episode identification accuracy                                 │
+│     ❌ Result set validation                                                │
+│     ❌ Performance benchmarks                                               │
+│     → RISK: Incorrect patient cohort selection                              │
+│                                                                              │
+│ ⚠️  VR TRAINING (vr-training/training_protocol.py)                          │
+│     ❌ Performance assessment (assess_performance)                          │
+│     ❌ Competency evaluation (generate_competency_report)                   │
+│     ❌ Learning path generation (generate_learning_path)                    │
+│     → RISK: Inadequate training validation                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ TEST REQUIREMENTS BY TYPE                                                    │
+├────────────────────────┬──────────┬─────────┬────────┬─────────────────────┤
+│ Test Type              │ Current  │ Needed  │ Total  │ Priority            │
+├────────────────────────┼──────────┼─────────┼────────┼─────────────────────┤
+│ Unit Tests             │    10    │   110   │  120   │ 🔴 CRITICAL         │
+│ Integration Tests      │     0    │    38   │   38   │ 🟠 HIGH             │
+│ End-to-End Tests       │     0    │    10   │   10   │ 🟡 MEDIUM           │
+│ Performance Tests      │     0    │     5   │    5   │ 🟢 LOW              │
+├────────────────────────┼──────────┼─────────┼────────┼─────────────────────┤
+│ TOTAL                  │    10    │   163   │  173   │                     │
+└────────────────────────┴──────────┴─────────┴────────┴─────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ IMPLEMENTATION ROADMAP (8 WEEKS)                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ 🔴 PHASE 1: FOUNDATION (Weeks 1-2) - 30 tests                              │
+│    Focus: Critical unit tests for core functions                            │
+│    ├─ ETL validation (10 tests)                                            │
+│    ├─ NIRS model training/prediction (15 tests)                            │
+│    └─ Cost calculations (5 tests)                                          │
+│    Target Coverage: 20%                                                     │
+│                                                                              │
+│ 🟠 PHASE 2: CORE FUNCTIONALITY (Weeks 3-4) - 40 tests                      │
+│    Focus: Complete coverage of main modules                                 │
+│    ├─ NIRS explanations & calibration (15 tests)                           │
+│    ├─ Cost-effectiveness ICER/budget (15 tests)                            │
+│    └─ VR training assessment (10 tests)                                    │
+│    Target Coverage: 40%                                                     │
+│                                                                              │
+│ 🟡 PHASE 3: INTEGRATION (Weeks 5-6) - 38 tests                             │
+│    Focus: End-to-end workflows and database tests                           │
+│    ├─ SQL query execution (10 tests)                                       │
+│    ├─ ETL pipelines (8 tests)                                              │
+│    ├─ Model training pipelines (10 tests)                                  │
+│    └─ Dashboard workflows (10 tests)                                       │
+│    Target Coverage: 65%                                                     │
+│                                                                              │
+│ 🟢 PHASE 4: UI & POLISH (Weeks 7-8) - 25 tests                             │
+│    Focus: Dashboard UI, edge cases, documentation                           │
+│    ├─ Dashboard UI tests (15 tests)                                        │
+│    └─ Edge case handling (10 tests)                                        │
+│    Target Coverage: 85%                                                     │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ PRIORITY BREAKDOWN                                                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 🔴 CRITICAL (40 tests) - Patient Safety Impact                             │
+│    • Model training/prediction accuracy tests                               │
+│    • Cost calculation correctness tests                                     │
+│    • Data validation tests                                                  │
+│    • Performance assessment tests                                           │
+│                                                                              │
+│ 🟠 HIGH (35 tests) - Data Integrity Impact                                 │
+│    • Integration tests for pipelines                                        │
+│    • SQL query execution tests                                              │
+│    • Data transformation tests                                              │
+│    • Calibration quality tests                                              │
+│                                                                              │
+│ 🟡 MEDIUM (25 tests) - User Experience Impact                              │
+│    • Dashboard UI tests                                                     │
+│    • End-to-end workflow tests                                              │
+│    • Error handling tests                                                   │
+│    • Edge case tests                                                        │
+│                                                                              │
+│ 🟢 LOW (10 tests) - Performance & Documentation                            │
+│    • Performance benchmarks                                                 │
+│    • Documentation tests                                                    │
+│    • Visual regression tests                                                │
+│    • Accessibility tests                                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ COVERAGE GOALS                                                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Current State:                                                               │
+│   ▓░░░░░░░░░░░░░░░░░░░ 5.9% Line Coverage                                   │
+│   ░░░░░░░░░░░░░░░░░░░░ 0% Branch Coverage                                   │
+│   ▓░░░░░░░░░░░░░░░░░░░ 8.3% Function Coverage                               │
+│                                                                              │
+│ Target (3 months):                                                           │
+│   ▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░ 60% Line Coverage                                    │
+│   ▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░ 50% Branch Coverage                                  │
+│   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░ 75% Function Coverage                                │
+│                                                                              │
+│ Target (6 months):                                                           │
+│   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 85% Line Coverage                                    │
+│   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░ 75% Branch Coverage                                  │
+│   ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 90% Function Coverage                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ IMMEDIATE ACTION ITEMS (THIS WEEK)                                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ 1. ✅ Set up test infrastructure                                            │
+│    • Configure pytest with coverage plugin                                  │
+│    • Create tests/fixtures/ directory                                       │
+│    • Add requirements-test.txt                                              │
+│                                                                              │
+│ 2. ✅ Write 10 critical unit tests                                          │
+│    • test_validate_patient_data() - ETL                                     │
+│    • test_train_model_va() - NIRS VA-ECMO                                   │
+│    • test_train_model_vv() - NIRS VV-ECMO                                   │
+│    • test_predict_risk() - NIRS predictions                                 │
+│    • test_calculate_ecmo_costs() - Economics                                │
+│    • test_calculate_qaly_outcomes() - Economics                             │
+│    • test_calculate_icer() - Economics                                      │
+│    • test_assess_performance() - VR Training                                │
+│    • test_map_record() - ETL Mapper                                         │
+│    • test_nirs_feature_frame() - NIRS Features                              │
+│                                                                              │
+│ 3. ✅ Set up CI/CD pipeline                                                 │
+│    • Configure GitHub Actions                                               │
+│    • Add Codecov integration                                                │
+│    • Enable branch protection rules                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ RISK ASSESSMENT                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ Production Impact Risks (Without Adequate Testing):                         │
+│                                                                              │
+│ ⚠️  nirs/risk_models.py                                                     │
+│    Risk: Model predictions incorrect                                        │
+│    Impact: **CRITICAL** - Patient safety compromise                         │
+│                                                                              │
+│ ⚠️  etl/elso_processor.py                                                   │
+│    Risk: Data corruption during transformation                              │
+│    Impact: **HIGH** - Invalid registry submissions to ELSO                  │
+│                                                                              │
+│ ⚠️  econ/cost_effectiveness.py                                              │
+│    Risk: Incorrect cost/QALY calculations                                   │
+│    Impact: **MEDIUM** - Budget errors and policy mistakes                   │
+│                                                                              │
+│ ⚠️  econ/dashboard.py                                                       │
+│    Risk: UI crashes and incorrect displays                                  │
+│    Impact: **MEDIUM** - Poor user experience, clinician frustration         │
+│                                                                              │
+│ ⚠️  vr-training/training_protocol.py                                        │
+│    Risk: Wrong competency assessments                                       │
+│    Impact: **LOW** - Training quality issues                                │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ KEY FINDINGS & RECOMMENDATIONS                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│ 📊 CURRENT STATE:                                                           │
+│    • Only 10 basic tests (imports, file checks)                             │
+│    • Zero functional/integration tests                                      │
+│    • 5.9% coverage is critically insufficient                               │
+│    • No CI/CD testing pipeline                                              │
+│                                                                              │
+│ 🎯 TARGET STATE:                                                            │
+│    • 173 comprehensive tests                                                │
+│    • 85% line coverage within 6 months                                      │
+│    • Automated CI/CD with coverage reporting                                │
+│    • Continuous monitoring in production                                    │
+│                                                                              │
+│ 💡 CRITICAL FOCUS AREAS:                                                    │
+│    1. Model prediction accuracy (NIRS risk models)                          │
+│    2. Cost calculation correctness (Economics)                              │
+│    3. ETL data validation (ELSO compliance)                                 │
+│    4. SQL query execution (MIMIC-IV integration)                            │
+│                                                                              │
+│ ⚡ IMMEDIATE ACTIONS:                                                       │
+│    • Implement 30 critical tests in next 2 weeks                            │
+│    • Set up pytest + coverage infrastructure                                │
+│    • Configure GitHub Actions CI/CD                                         │
+│    • Generate synthetic MIMIC-IV test data                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║ CONCLUSION: Test coverage is CRITICALLY INSUFFICIENT for clinical deployment.║
+║ Immediate action required to ensure patient safety and data integrity.       ║
+║                                                                               ║
+║ Full detailed analysis: docs/test_coverage_analysis.md                       ║
+║ Stored in memory: analysis/test-coverage (coordination namespace)            ║
+╚═══════════════════════════════════════════════════════════════════════════════╝

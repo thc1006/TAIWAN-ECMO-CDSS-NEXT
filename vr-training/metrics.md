@@ -1,0 +1,7 @@
+- Teamwork score
+- Leadership score
+- Communication latency (sec)
+- Task setup time (min)
+- Cannulation time (min)
+- Error recovery time (sec)
+- Correct command rate (%)

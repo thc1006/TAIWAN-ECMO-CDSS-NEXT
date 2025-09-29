@@ -1,0 +1,805 @@
+{
+  "analysis_timestamp": "2025-09-30",
+  "cost_effectiveness_module": {
+    "file": "econ/cost_effectiveness.py",
+    "lines": 532,
+    "cost_parameters_class": {
+      "class_name": "CostParameters",
+      "line": 22,
+      "daily_costs_usd": {
+        "ecmo_daily_cost": {
+          "value": 3500.0,
+          "description": "Daily ECMO circuit and management",
+          "line": 25
+        },
+        "icu_daily_cost": {
+          "value": 2500.0,
+          "description": "ICU bed daily cost",
+          "line": 26
+        },
+        "physician_daily_cost": {
+          "value": 800.0,
+          "description": "Specialist physician costs",
+          "line": 27
+        },
+        "nursing_daily_cost": {
+          "value": 1200.0,
+          "description": "ECMO nursing costs",
+          "line": 28
+        },
+        "dialysis_daily_cost": {
+          "value": 1500.0,
+          "description": "CRRT if needed",
+          "line": 42
+        },
+        "total_daily_baseline": 8000.0
+      },
+      "setup_costs_usd": {
+        "cannulation_cost": {
+          "value": 15000.0,
+          "description": "Cannulation procedure (one-time)",
+          "line": 31
+        },
+        "decannulation_cost": {
+          "value": 8000.0,
+          "description": "Decannulation procedure (one-time)",
+          "line": 32
+        }
+      },
+      "complication_costs_usd": {
+        "bleeding_cost": {
+          "value": 25000.0,
+          "description": "Major bleeding episode",
+          "line": 35
+        },
+        "stroke_cost": {
+          "value": 45000.0,
+          "description": "Stroke/neurologic injury",
+          "line": 36
+        },
+        "aki_cost": {
+          "value": 20000.0,
+          "description": "Acute kidney injury",
+          "line": 37
+        },
+        "infection_cost": {
+          "value": 15000.0,
+          "description": "Healthcare-associated infection",
+          "line": 38
+        }
+      },
+      "equipment_costs_usd": {
+        "circuit_replacement_cost": {
+          "value": 3000.0,
+          "description": "ECMO circuit change",
+          "line": 41
+        }
+      },
+      "adjustments": {
+        "taiwan_cost_multiplier": {
+          "value": 0.65,
+          "description": "Adjust for Taiwan healthcare costs",
+          "line": 45,
+          "note": "Applied to total costs"
+        }
+      }
+    },
+    "complication_rates": {
+      "major_bleeding": {
+        "rate": 0.15,
+        "percentage": "15%",
+        "line": 130,
+        "cost_if_occurs": 25000.0
+      },
+      "stroke_neurologic": {
+        "rate": 0.08,
+        "percentage": "8%",
+        "line": 137,
+        "cost_if_occurs": 45000.0
+      },
+      "acute_kidney_injury": {
+        "rate": 0.25,
+        "percentage": "25%",
+        "line": 144,
+        "cost_if_occurs": 20000.0
+      },
+      "infection": {
+        "rate": 0.20,
+        "percentage": "20%",
+        "line": 151,
+        "cost_if_occurs": 15000.0
+      }
+    },
+    "circuit_replacement": {
+      "interval_days": 7,
+      "formula": "ceil(ecmo_duration_days / 7)",
+      "cost_per_replacement": 3000.0,
+      "line": 165
+    },
+    "total_cost_calculation": {
+      "formula": "total_daily_costs + cannulation + decannulation + complications + circuits",
+      "components": [
+        "total_daily_costs = daily_total_cost * ecmo_duration_days",
+        "cannulation_cost = 15000",
+        "decannulation_cost = 8000 (if survived)",
+        "complication_costs = sum of applicable complications",
+        "circuit_costs = circuit_replacements * 3000"
+      ],
+      "final_adjustment": "total_cost_usd *= taiwan_cost_multiplier (0.65)",
+      "line": 171
+    },
+    "utility_parameters_class": {
+      "class_name": "UtilityParameters",
+      "line": 48,
+      "health_state_utilities": {
+        "normal_health": {
+          "value": 0.90,
+          "description": "Normal health state",
+          "scale": "0-1",
+          "line": 51
+        },
+        "ecmo_support": {
+          "value": 0.20,
+          "description": "Utility while on ECMO",
+          "scale": "0-1",
+          "line": 52
+        },
+        "post_ecmo_good": {
+          "value": 0.80,
+          "description": "Good neurologic outcome",
+          "scale": "0-1",
+          "line": 53
+        },
+        "post_ecmo_moderate": {
+          "value": 0.60,
+          "description": "Moderate disability",
+          "scale": "0-1",
+          "line": 54
+        },
+        "post_ecmo_severe": {
+          "value": 0.30,
+          "description": "Severe disability",
+          "scale": "0-1",
+          "line": 55
+        },
+        "death": {
+          "value": 0.0,
+          "description": "Death",
+          "scale": "0-1",
+          "line": 56
+        }
+      },
+      "life_expectancy": {
+        "base_formula": "80 - age_years",
+        "life_expectancy_reduction": {
+          "value": 2.0,
+          "units": "years",
+          "description": "Years lost due to critical illness",
+          "line": 59
+        },
+        "adjusted_formula": "max(base_life_expectancy - 2.0, 0)",
+        "line": 237
+      }
+    },
+    "neurologic_outcome_distribution": {
+      "death": {
+        "condition": "if not survived_to_discharge",
+        "utility": 0.0
+      },
+      "normal": {
+        "probability": 0.50,
+        "utility": 0.80,
+        "line": 212,
+        "description": "50% of survivors have normal outcome"
+      },
+      "mild_deficit": {
+        "probability": 0.25,
+        "utility": 0.80,
+        "line": 214,
+        "description": "25% of survivors (cumulative 75%)",
+        "note": "Maps to post_ecmo_good utility"
+      },
+      "moderate_deficit": {
+        "probability": 0.15,
+        "utility": 0.60,
+        "line": 216,
+        "description": "15% of survivors (cumulative 90%)"
+      },
+      "severe_deficit": {
+        "probability": 0.10,
+        "utility": 0.30,
+        "line": 218,
+        "description": "10% of survivors"
+      }
+    },
+    "qaly_calculation": {
+      "formula": "post_ecmo_utility * adjusted_life_expectancy",
+      "line": 243,
+      "components": {
+        "post_ecmo_utility": "from neurologic_outcome mapping",
+        "adjusted_life_expectancy": "max(80 - age - 2, 0)"
+      },
+      "death_qalys": {
+        "value": 0,
+        "line": 247
+      },
+      "discounting": {
+        "applied_if": "discount_rate > 0",
+        "method": "mid-point discounting",
+        "formula": "1 / (1 + discount_rate)^(adjusted_life_expectancy / 2)",
+        "line": 251,
+        "description": "Discounts QALYs at midpoint of life expectancy"
+      }
+    },
+    "icer_calculation": {
+      "full_name": "Incremental Cost-Effectiveness Ratio",
+      "formula": "(intervention_cost - comparator_cost) / (intervention_qaly - comparator_qaly)",
+      "line": 289,
+      "interpretation_thresholds": {
+        "cost_saving": {
+          "range": "< 0",
+          "description": "Cost-saving (dominant)",
+          "line": 315
+        },
+        "very_cost_effective": {
+          "range": "0 - 20000",
+          "units": "USD per QALY",
+          "line": 317
+        },
+        "cost_effective": {
+          "range": "20000 - 50000",
+          "units": "USD per QALY",
+          "line": 319
+        },
+        "moderately_cost_effective": {
+          "range": "50000 - 100000",
+          "units": "USD per QALY",
+          "line": 321
+        },
+        "not_cost_effective": {
+          "range": ">= 100000",
+          "units": "USD per QALY",
+          "line": 323
+        }
+      },
+      "willingness_to_pay_thresholds": {
+        "threshold_50k": {
+          "value": 50000,
+          "units": "USD per QALY",
+          "line": 304
+        },
+        "threshold_100k": {
+          "value": 100000,
+          "units": "USD per QALY",
+          "line": 305
+        }
+      },
+      "special_cases": {
+        "dominated": "incremental_qaly <= 0 and incremental_cost > 0",
+        "dominant": "incremental_qaly > 0 and incremental_cost < 0",
+        "line": 293
+      }
+    },
+    "budget_impact_analysis": {
+      "function": "budget_impact_analysis",
+      "line": 325,
+      "parameters": {
+        "population_size": "target population size",
+        "ecmo_utilization_rate": "proportion receiving ECMO (0-1)",
+        "years": {
+          "default": 5,
+          "description": "time horizon for analysis"
+        }
+      },
+      "calculations": {
+        "annual_ecmo_cases": {
+          "formula": "population_size * ecmo_utilization_rate",
+          "line": 342
+        },
+        "discount_factor": {
+          "formula": "1 / (1 + discount_rate)^(year - 1)",
+          "line": 365
+        },
+        "yearly_cost": {
+          "formula": "annual_total_cost * discount_factor",
+          "line": 367
+        },
+        "yearly_qalys": {
+          "formula": "annual_qalys * discount_factor",
+          "line": 368
+        }
+      },
+      "output": {
+        "yearly_results": [
+          {
+            "year": "1 to years",
+            "cases": "annual_ecmo_cases",
+            "total_cost": "discounted yearly cost",
+            "total_qalys": "discounted yearly QALYs",
+            "cost_per_case": "total_cost / cases",
+            "qalys_per_case": "total_qalys / cases"
+          }
+        ],
+        "summary": {
+          "total_program_cost": "sum of all yearly costs",
+          "total_program_qalys": "sum of all yearly QALYs",
+          "cost_per_qaly": "total_cost / total_qalys"
+        }
+      }
+    },
+    "sensitivity_analysis": {
+      "function": "sensitivity_analysis",
+      "line": 398,
+      "method": "one-way sensitivity analysis",
+      "parameters": {
+        "base_case_data": "baseline patient data",
+        "parameter_ranges": "dict of (low, high) ranges for each parameter"
+      },
+      "procedure": {
+        "step_1": "Calculate base case ICER",
+        "step_2": "For each parameter, test at low, base, and high values",
+        "step_3": "Calculate ICER at each value",
+        "step_4": "Record change from base case"
+      },
+      "output": {
+        "parameter_results": [
+          {
+            "parameter_value": "tested value",
+            "icer": "calculated ICER",
+            "change_from_base": "(test_icer - base_icer) / base_icer"
+          }
+        ]
+      },
+      "note": "Temporarily modifies cost parameters, then restores original values"
+    },
+    "demo_data_generation": {
+      "function": "generate_demo_economic_data",
+      "line": 496,
+      "seed": 42,
+      "default_n_patients": 500,
+      "distributions": {
+        "age_years": {
+          "distribution": "normal",
+          "mean": 55,
+          "std": 15,
+          "clip_min": 18,
+          "clip_max": 85
+        },
+        "ecmo_duration_hours": {
+          "distribution": "exponential",
+          "scale": 120,
+          "clip_min": 24,
+          "clip_max": 720,
+          "note": "Mean ~120 hours (5 days)"
+        },
+        "survived_to_discharge": {
+          "distribution": "choice",
+          "values": [true, false],
+          "probabilities": [0.6, 0.4],
+          "note": "60% survival rate"
+        },
+        "ecmo_type": {
+          "distribution": "choice",
+          "values": ["VA", "VV"],
+          "probabilities": [0.6, 0.4],
+          "note": "60% VA, 40% VV"
+        }
+      }
+    }
+  },
+  "dashboard_module": {
+    "file": "econ/dashboard.py",
+    "lines": 747,
+    "streamlit_config": {
+      "page_title": "Taiwan ECMO CDSS",
+      "page_icon": "🫀",
+      "layout": "wide",
+      "initial_sidebar_state": "expanded",
+      "line": 26
+    },
+    "pages": {
+      "home": {
+        "function": "show_home",
+        "line": 118,
+        "description": "System overview and quick stats"
+      },
+      "risk_assessment": {
+        "function": "show_risk_assessment",
+        "line": 203,
+        "description": "NIRS-enhanced risk prediction"
+      },
+      "cost_effectiveness": {
+        "function": "show_cost_effectiveness",
+        "line": 459,
+        "description": "Economic analysis and budget impact"
+      },
+      "analytics": {
+        "function": "show_analytics",
+        "line": 589,
+        "description": "Data visualization and trends"
+      },
+      "about": {
+        "function": "show_about",
+        "line": 663,
+        "description": "System information and documentation"
+      }
+    },
+    "risk_assessment_inputs": {
+      "demographics": {
+        "age": {
+          "min": 18,
+          "max": 90,
+          "default": 55,
+          "line": 226
+        },
+        "weight": {
+          "min": 30,
+          "max": 200,
+          "default": 70,
+          "units": "kg",
+          "line": 227
+        },
+        "height": {
+          "min": 120,
+          "max": 220,
+          "default": 170,
+          "units": "cm",
+          "line": 228
+        }
+      },
+      "laboratory": {
+        "ph": {
+          "min": 6.8,
+          "max": 7.8,
+          "default": 7.25,
+          "step": 0.01,
+          "line": 231
+        },
+        "lactate": {
+          "min": 0.5,
+          "max": 20.0,
+          "default": 2.0,
+          "units": "mmol/L",
+          "line": 232
+        },
+        "po2": {
+          "min": 30,
+          "max": 200,
+          "default": 80,
+          "units": "mmHg",
+          "line": 233
+        },
+        "pco2": {
+          "min": 20,
+          "max": 100,
+          "default": 45,
+          "units": "mmHg",
+          "line": 234
+        }
+      },
+      "nirs": {
+        "cerebral_so2": {
+          "min": 30,
+          "max": 90,
+          "default": 70,
+          "units": "%",
+          "line": 238
+        },
+        "renal_so2": {
+          "min": 40,
+          "max": 90,
+          "default": 75,
+          "units": "%",
+          "line": 239
+        },
+        "somatic_so2": {
+          "min": 35,
+          "max": 85,
+          "default": 70,
+          "units": "%",
+          "line": 240
+        }
+      },
+      "va_specific": {
+        "cardiac_arrest": {
+          "type": "checkbox",
+          "default": false,
+          "line": 244
+        },
+        "cpr_duration": {
+          "min": 0,
+          "max": 120,
+          "default": 0,
+          "units": "minutes",
+          "line": 245
+        },
+        "lvef": {
+          "min": 10,
+          "max": 70,
+          "default": 25,
+          "units": "%",
+          "line": 246
+        }
+      },
+      "vv_specific": {
+        "murray_score": {
+          "min": 0.0,
+          "max": 4.0,
+          "default": 3.0,
+          "line": 248
+        },
+        "immunocompromised": {
+          "type": "checkbox",
+          "default": false,
+          "line": 249
+        },
+        "prone_positioning": {
+          "type": "checkbox",
+          "default": false,
+          "line": 250
+        }
+      }
+    },
+    "simplified_risk_model": {
+      "function": "calculate_simplified_risk",
+      "line": 371,
+      "base_risk": 0.3,
+      "age_effects": {
+        "over_65": {
+          "risk_increase": 0.2,
+          "line": 377
+        },
+        "over_50": {
+          "risk_increase": 0.1,
+          "line": 379
+        }
+      },
+      "nirs_effects": {
+        "cerebral_below_60": {
+          "risk_increase": 0.25,
+          "line": 383
+        },
+        "cerebral_below_70": {
+          "risk_increase": 0.1,
+          "line": 385
+        }
+      },
+      "laboratory_effects": {
+        "ph_below_7.2": {
+          "risk_increase": 0.15,
+          "line": 389
+        },
+        "lactate_above_5": {
+          "risk_increase": 0.2,
+          "line": 391
+        }
+      },
+      "va_specific_effects": {
+        "cardiac_arrest": {
+          "risk_increase": 0.25,
+          "line": 396
+        },
+        "lvef_below_20": {
+          "risk_increase": 0.15,
+          "line": 398
+        }
+      },
+      "vv_specific_effects": {
+        "immunocompromised": {
+          "risk_increase": 0.15,
+          "line": 401
+        },
+        "murray_above_3": {
+          "risk_increase": 0.1,
+          "line": 403
+        }
+      },
+      "risk_cap": {
+        "max": 0.95,
+        "percentage": "95%",
+        "line": 405
+      }
+    },
+    "feature_contributions": {
+      "function": "calculate_feature_contributions",
+      "line": 407,
+      "formulas": {
+        "age": {
+          "formula": "(age_years - 50) * 0.005",
+          "baseline": 50,
+          "coefficient": 0.005,
+          "line": 412
+        },
+        "cerebral_rso2": {
+          "formula": "(70 - cerebral_so2_baseline) * 0.003",
+          "baseline": 70,
+          "coefficient": 0.003,
+          "line": 416
+        },
+        "renal_rso2": {
+          "formula": "(75 - renal_so2_baseline) * 0.002",
+          "baseline": 75,
+          "coefficient": 0.002,
+          "line": 417
+        },
+        "ph": {
+          "formula": "(7.35 - ph) * 0.5",
+          "baseline": 7.35,
+          "coefficient": 0.5,
+          "line": 420
+        },
+        "lactate": {
+          "formula": "(lactate - 2) * 0.05",
+          "baseline": 2,
+          "coefficient": 0.05,
+          "line": 421
+        },
+        "cardiac_arrest": {
+          "value": 0.15,
+          "condition": "if true else 0",
+          "line": 424
+        },
+        "lvef": {
+          "formula": "(40 - lvef) * 0.003",
+          "baseline": 40,
+          "coefficient": 0.003,
+          "line": 425
+        },
+        "murray_score": {
+          "formula": "(murray_score - 2) * 0.05",
+          "baseline": 2,
+          "coefficient": 0.05,
+          "line": 427
+        },
+        "immunocompromised": {
+          "value": 0.1,
+          "condition": "if true else 0",
+          "line": 428
+        }
+      }
+    },
+    "recommendations": {
+      "function": "generate_recommendations",
+      "line": 432,
+      "rules": [
+        {
+          "condition": "risk_score > 0.7",
+          "message": "High mortality risk - multidisciplinary team discussion",
+          "priority": "high",
+          "line": 437
+        },
+        {
+          "condition": "cerebral_so2_baseline < 60",
+          "message": "Low cerebral rSO2 - monitor neurologic complications, optimize perfusion",
+          "priority": "high",
+          "line": 440
+        },
+        {
+          "condition": "pre_ecmo_lactate > 5",
+          "message": "Elevated lactate - address tissue hypoperfusion, shock management",
+          "priority": "high",
+          "line": 444
+        },
+        {
+          "condition": "VA and cardiac_arrest",
+          "message": "Post-arrest - targeted temperature management, neuroprotection",
+          "priority": "medium",
+          "line": 447
+        },
+        {
+          "condition": "VA and lvef < 20",
+          "message": "Severe LV dysfunction - monitor for LV distension, consider venting",
+          "priority": "medium",
+          "line": 449
+        },
+        {
+          "condition": "VV and immunocompromised",
+          "message": "Immunocompromised - enhanced infection surveillance, antimicrobial prophylaxis",
+          "priority": "medium",
+          "line": 452
+        },
+        {
+          "condition": "always",
+          "message": "Continue NIRS monitoring throughout ECMO support",
+          "priority": "standard",
+          "line": 454
+        },
+        {
+          "condition": "always",
+          "message": "Reassess daily using updated clinical parameters",
+          "priority": "standard",
+          "line": 455
+        }
+      ]
+    },
+    "cost_effectiveness_analysis_defaults": {
+      "population_size": {
+        "min": 1000,
+        "max": 1000000,
+        "default": 100000,
+        "line": 468
+      },
+      "utilization_rate": {
+        "min": 0.0001,
+        "max": 0.01,
+        "default": 0.001,
+        "format": "%.4f",
+        "description": "0.1% default",
+        "line": 469
+      },
+      "time_horizon": {
+        "min": 1,
+        "max": 10,
+        "default": 5,
+        "units": "years",
+        "line": 470
+      },
+      "discount_rate": {
+        "min": 0.0,
+        "max": 0.1,
+        "default": 0.03,
+        "format": "%.2f",
+        "description": "3% default",
+        "line": 471
+      },
+      "daily_ecmo_cost": {
+        "min": 1000,
+        "max": 10000,
+        "default": 3500,
+        "units": "USD",
+        "line": 475
+      },
+      "daily_icu_cost": {
+        "min": 500,
+        "max": 5000,
+        "default": 2500,
+        "units": "USD",
+        "line": 476
+      },
+      "cannulation_cost": {
+        "min": 5000,
+        "max": 30000,
+        "default": 15000,
+        "units": "USD",
+        "line": 477
+      }
+    }
+  },
+  "issues_identified": {
+    "class_imbalance": {
+      "issue": "No explicit class imbalance handling",
+      "location": "nirs/risk_models.py training",
+      "severity": "moderate",
+      "recommendation": "Consider SMOTE, class weights, or stratified sampling",
+      "current_mitigation": "Stratified train-test split only"
+    },
+    "cross_validation": {
+      "issue": "Cross-validation only in calibration (cv=3)",
+      "location": "nirs/risk_models.py line 236",
+      "severity": "low",
+      "recommendation": "Add explicit cross-validation for model selection",
+      "current_approach": "Single train/validation split"
+    },
+    "missing_values": {
+      "issue": "Simple median imputation",
+      "location": "nirs/risk_models.py line 197",
+      "severity": "low",
+      "recommendation": "Consider more sophisticated imputation methods",
+      "current_approach": "fillna with median"
+    },
+    "hyperparameter_tuning": {
+      "issue": "No hyperparameter optimization",
+      "location": "nirs/risk_models.py models definition",
+      "severity": "moderate",
+      "recommendation": "Add GridSearchCV or RandomizedSearchCV",
+      "current_approach": "Default parameters only"
+    },
+    "complication_rates": {
+      "issue": "Random complication assignment in cost calculation",
+      "location": "econ/cost_effectiveness.py lines 130-155",
+      "severity": "low",
+      "recommendation": "Use patient-specific risk factors for complications",
+      "current_approach": "Fixed rates with random sampling"
+    }
+  }
+}

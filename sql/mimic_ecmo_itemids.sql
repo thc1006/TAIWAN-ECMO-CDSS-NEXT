@@ -1,0 +1,1 @@
+SELECT itemid,label,category FROM icu.d_items WHERE LOWER(label) ~ '(ecmo|oxygenator|circuit|sweep)' ORDER BY itemid;
