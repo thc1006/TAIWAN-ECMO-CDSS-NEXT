@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taiwan ECMO CDSS - SMART on FHIR</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 40px 0;
+        }
+        .main-container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 30px;
+        }
+        .card-header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 700;
+        }
+        .card-header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+        }
+        .info-alert {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .launch-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        .btn-launch {
+            padding: 12px 30px;
+            font-weight: 600;
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        .btn-launch:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .scope-badge {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            display: inline-block;
+            margin: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        .feature-icon {
+            font-size: 2rem;
+            color: #667eea;
+        }
+        code {
+            background: #f5f5f5;
+            padding: 3px 8px;
+            border-radius: 4px;
+            color: #d63384;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <div class="card">
+            <div class="card-header">
+                <h1><i class="bi bi-heart-pulse-fill"></i> Taiwan ECMO CDSS</h1>
+                <p class="mb-0">Clinical Decision Support System for ECMO Candidacy Assessment</p>
+            </div>
+            <div class="card-body p-4">
+                <!-- About Section -->
+                <div class="info-alert">
+                    <h5 class="mb-3"><i class="bi bi-info-circle-fill"></i> About This Application</h5>
+                    <p class="mb-0">This SMART on FHIR application integrates with Electronic Health Record (EHR) systems to provide real-time ECMO candidacy assessment and risk stratification for critically ill patients. It uses NIRS monitoring, laboratory values, and clinical parameters to predict patient outcomes.</p>
+                </div>
+
+                <!-- Features Section -->
+                <div class="row mb-4">
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="bi bi-graph-up feature-icon"></i>
+                        <h6 class="mt-2">Risk Assessment</h6>
+                        <p class="small text-muted">ML-based survival prediction</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="bi bi-activity feature-icon"></i>
+                        <h6 class="mt-2">Real-time Monitoring</h6>
+                        <p class="small text-muted">NIRS and vital signs tracking</p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <i class="bi bi-shield-check feature-icon"></i>
+                        <h6 class="mt-2">FHIR Compliant</h6>
+                        <p class="small text-muted">Secure EHR integration</p>
+                    </div>
+                </div>
+
+                <!-- Launch Options -->
+                <h4 class="mb-3"><i class="bi bi-rocket-takeoff-fill"></i> Launch Options</h4>
+
+                <!-- EHR Launch -->
+                <div class="launch-section">
+                    <h5><i class="bi bi-hospital"></i> EHR-Initiated Launch</h5>
+                    <p class="text-muted">Launch from within your EHR system (Epic, Cerner, etc.)</p>
+                    <div class="alert alert-info mb-0">
+                        <strong>Launch URL:</strong><br>
+                        <code>{{ request.url_root }}launch</code>
+                    </div>
+                </div>
+
+                <!-- Standalone Launch -->
+                <div class="launch-section">
+                    <h5><i class="bi bi-box-arrow-up-right"></i> Standalone Launch</h5>
+                    <p class="text-muted">For testing or standalone use with FHIR server selection</p>
+                    <a href="/standalone-launch" class="btn btn-success btn-launch">
+                        <i class="bi bi-play-fill"></i> Launch Standalone
+                    </a>
+                </div>
+
+                <!-- Configuration -->
+                <h4 class="mb-3 mt-4"><i class="bi bi-gear-fill"></i> Configuration</h4>
+                <div class="table-responsive">
+                    <table class="table table-borderless">
+                        <tr>
+                            <td class="fw-bold">Client ID:</td>
+                            <td><code>{{ client_id or 'Not configured' }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="fw-bold">Redirect URI:</td>
+                            <td><code>{{ redirect_uri }}</code></td>
+                        </tr>
+                    </table>
+                </div>
+
+                <!-- Required Scopes -->
+                <h5 class="mb-3">Required FHIR Scopes:</h5>
+                <div class="mb-4">
+                    {% for scope in scopes.split() %}
+                    <span class="scope-badge">{{ scope }}</span>
+                    {% endfor %}
+                </div>
+
+                <!-- Scope Descriptions -->
+                <div class="accordion mb-4" id="scopeAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#scopeDetails">
+                                <i class="bi bi-key-fill me-2"></i> What do these scopes enable?
+                            </button>
+                        </h2>
+                        <div id="scopeDetails" class="accordion-collapse collapse" data-bs-parent="#scopeAccordion">
+                            <div class="accordion-body">
+                                <ul class="list-unstyled">
+                                    <li><i class="bi bi-check-circle-fill text-success"></i> <strong>Patient demographics</strong> - Age, gender, medical record number</li>
+                                    <li><i class="bi bi-check-circle-fill text-success"></i> <strong>Vital signs</strong> - Heart rate, blood pressure, oxygen saturation</li>
+                                    <li><i class="bi bi-check-circle-fill text-success"></i> <strong>Laboratory values</strong> - Lactate, ABG, hemoglobin, platelets</li>
+                                    <li><i class="bi bi-check-circle-fill text-success"></i> <strong>NIRS monitoring</strong> - Cerebral and somatic oxygen saturation</li>
+                                    <li><i class="bi bi-check-circle-fill text-success"></i> <strong>Procedures</strong> - ECMO, CRRT, mechanical ventilation</li>
+                                    <li><i class="bi bi-check-circle-fill text-success"></i> <strong>Diagnoses</strong> - Cardiac arrest, ARDS, sepsis, shock</li>
+                                    <li><i class="bi bi-check-circle-fill text-success"></i> <strong>Medications</strong> - Vasopressors, anticoagulation</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Testing Section -->
+                <h4 class="mb-3"><i class="bi bi-clipboard-check-fill"></i> Testing</h4>
+                <div class="alert alert-warning">
+                    <strong><i class="bi bi-exclamation-triangle-fill"></i> For Testing:</strong>
+                    Use the SMART Health IT Launcher to test this application with sample FHIR data.
+                    <div class="mt-3">
+                        <a href="https://launch.smarthealthit.org/" target="_blank" class="btn btn-primary btn-launch">
+                            <i class="bi bi-box-arrow-up-right"></i> SMART Health IT Launcher
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Setup Instructions -->
+                <div class="alert alert-info">
+                    <strong><i class="bi bi-info-circle-fill"></i> Setup Required:</strong>
+                    This application must be registered in your EHR system's SMART app registry. Contact your EHR administrator to:
+                    <ul class="mb-0 mt-2">
+                        <li>Register the redirect URI shown above</li>
+                        <li>Approve the required FHIR scopes</li>
+                        <li>Configure the client ID and secret (if applicable)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="text-center mt-4">
+            <p class="text-white">
+                <i class="bi bi-github"></i>
+                <a href="https://github.com/thc1006/TAIWAN-ECMO-CDSS-NEXT" class="text-white text-decoration-none">Taiwan ECMO CDSS Project</a>
+            </p>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

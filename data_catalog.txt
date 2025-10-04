@@ -1,0 +1,28 @@
+MIMIC-IV 3.1 Data Catalog
+=========================
+
+Source: physionet.org/files/mimiciv/3.1/
+
+## Hospital (hosp/) Data:
+- admissions.csv.gz - Hospital admissions
+- patients.csv.gz - Patient demographics
+- diagnoses_icd.csv.gz - ICD diagnosis codes
+- procedures_icd.csv.gz - ICD procedure codes
+- d_icd_diagnoses.csv.gz - ICD diagnosis dictionary
+- d_icd_procedures.csv.gz - ICD procedure dictionary
+- labevents.csv.gz - Laboratory events
+- d_labitems.csv.gz - Laboratory item dictionary
+- prescriptions.csv.gz - Medication prescriptions
+- microbiologyevents.csv.gz - Microbiology cultures
+- drgcodes.csv.gz - DRG codes
+
+## ICU Data:
+- chartevents.csv.gz (3.3GB) - Vital signs and flowsheet data
+- d_items.csv.gz - Item dictionary for chartevents
+- icustays.csv.gz - ICU stay information
+- datetimeevents.csv.gz - Datetime events
+- inputevents.csv.gz - Fluid inputs
+- outputevents.csv.gz - Outputs (urine, drains)
+- procedureevents.csv.gz - ICU procedures
+
+Total Size: ~10GB compressed

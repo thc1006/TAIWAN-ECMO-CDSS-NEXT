@@ -1,533 +1,873 @@
 """
-Cost-Effectiveness Analytics for ECMO
-Taiwan ECMO CDSS - Health Economics Module
+Cost-Effectiveness Analysis for ECMO CDSS (WP2)
 
-Calculates cost-effectiveness metrics, QALY analysis, and budget impact
+Computes:
+- CER (Cost-Effectiveness Ratio) by risk quintile
+- ICER (Incremental Cost-Effectiveness Ratio)
+- CEAC (Cost-Effectiveness Acceptability Curve)
+- PSA (Probabilistic Sensitivity Analysis)
+- Two-way sensitivity analysis (tornado diagrams)
+- VOI (Value of Information) analysis
+- Budget impact analysis
+- Multi-currency support (TWD, USD, EUR)
+- Taiwan NHI-specific calculations
+
+Follows CHEERS 2022 reporting guidelines.
+
+Parameterized for local context: LOS, costs, survival rates
 """
 
-import pandas as pd
 import numpy as np
-from typing import Dict, List, Tuple, Optional
-import logging
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-import matplotlib.pyplot as plt
-import seaborn as sns
-
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-@dataclass
-class CostParameters:
-    """Cost parameters for ECMO economics analysis"""
-    # Daily costs (USD)
-    ecmo_daily_cost: float = 3500.0  # Daily ECMO circuit and management
-    icu_daily_cost: float = 2500.0   # ICU bed daily cost
-    physician_daily_cost: float = 800.0  # Specialist physician costs
-    nursing_daily_cost: float = 1200.0   # ECMO nursing costs
-    
-    # Setup costs (one-time)
-    cannulation_cost: float = 15000.0   # Cannulation procedure
-    decannulation_cost: float = 8000.0  # Decannulation procedure
-    
-    # Complication costs
-    bleeding_cost: float = 25000.0      # Major bleeding episode
-    stroke_cost: float = 45000.0        # Stroke/neurologic injury
-    aki_cost: float = 20000.0           # Acute kidney injury
-    infection_cost: float = 15000.0     # Healthcare-associated infection
-    
-    # Equipment costs
-    circuit_replacement_cost: float = 3000.0  # ECMO circuit change
-    dialysis_daily_cost: float = 1500.0       # CRRT if needed
-    
-    # Taiwan-specific adjustments
-    taiwan_cost_multiplier: float = 0.65  # Adjust for Taiwan healthcare costs
-
-@dataclass
-class UtilityParameters:
-    """Health utility parameters for QALY calculation"""
-    # Health state utilities (0-1 scale)
-    normal_health: float = 0.90
-    ecmo_support: float = 0.20          # Utility while on ECMO
-    post_ecmo_good: float = 0.80        # Good neurologic outcome
-    post_ecmo_moderate: float = 0.60    # Moderate disability
-    post_ecmo_severe: float = 0.30      # Severe disability
-    death: float = 0.0
-    
-    # Life expectancy adjustments (years)
-    life_expectancy_reduction: float = 2.0  # Years lost due to critical illness
+import pandas as pd
+from scipy import stats
+from typing import Dict, Tuple, Optional, List
+import warnings
 
 
-class ECMOCostEffectivenessAnalyzer:
+class ECMOCostEffectivenessAnalysis:
     """
-    ECMO Cost-Effectiveness Analysis
-    Performs economic evaluation of ECMO interventions
+    Cost-effectiveness analysis for ECMO interventions stratified by risk quintile.
+
+    Supports local parameterization of:
+    - Length of stay (ICU, hospital)
+    - Cost parameters (daily ICU, daily ward, ECMO consumables)
+    - Survival rates
+    - Quality-adjusted life years (QALYs)
+    - Multi-currency support (TWD, USD, EUR)
+    - Taiwan NHI reimbursement calculations
+    - Probabilistic sensitivity analysis
+    - Value of information analysis
+    - Budget impact analysis
     """
-    
-    def __init__(self, cost_params: CostParameters = None, 
-                 utility_params: UtilityParameters = None,
-                 discount_rate: float = 0.03):
-        """
-        Initialize cost-effectiveness analyzer
-        
-        Args:
-            cost_params: Cost parameter configuration
-            utility_params: Utility parameter configuration
-            discount_rate: Annual discount rate for future costs/benefits
-        """
-        self.cost_params = cost_params or CostParameters()
-        self.utility_params = utility_params or UtilityParameters()
-        self.discount_rate = discount_rate
-        
-        logger.info("Initialized ECMO Cost-Effectiveness Analyzer")
-    
-    def calculate_ecmo_costs(self, patient_data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Calculate total ECMO-related costs per patient
-        
-        Args:
-            patient_data: DataFrame with patient ECMO data
-            
-        Returns:
-            DataFrame with cost calculations
-        """
-        logger.info(f"Calculating costs for {len(patient_data)} ECMO patients")
-        
-        costs_df = patient_data.copy()
-        
-        # Basic ECMO support costs
-        costs_df['ecmo_duration_days'] = costs_df.get('ecmo_duration_hours', 120) / 24
-        
-        # Daily costs
-        costs_df['daily_ecmo_cost'] = self.cost_params.ecmo_daily_cost
-        costs_df['daily_icu_cost'] = self.cost_params.icu_daily_cost
-        costs_df['daily_physician_cost'] = self.cost_params.physician_daily_cost
-        costs_df['daily_nursing_cost'] = self.cost_params.nursing_daily_cost
-        costs_df['daily_total_cost'] = (
-            costs_df['daily_ecmo_cost'] + 
-            costs_df['daily_icu_cost'] + 
-            costs_df['daily_physician_cost'] + 
-            costs_df['daily_nursing_cost']
-        )
-        
-        # Total daily costs
-        costs_df['total_daily_costs'] = (
-            costs_df['daily_total_cost'] * costs_df['ecmo_duration_days']
-        )
-        
-        # Setup costs
-        costs_df['cannulation_cost'] = self.cost_params.cannulation_cost
-        costs_df['decannulation_cost'] = np.where(
-            costs_df.get('survived_to_discharge', True),
-            self.cost_params.decannulation_cost, 0
-        )
-        
-        # Complication costs
-        costs_df['complication_costs'] = 0.0
-        
-        # Major bleeding
-        bleeding_rate = 0.15  # 15% major bleeding rate
-        costs_df['bleeding_cost'] = np.where(
-            np.random.random(len(costs_df)) < bleeding_rate,
-            self.cost_params.bleeding_cost, 0
-        )
-        
-        # Stroke/neurologic injury
-        stroke_rate = 0.08  # 8% stroke rate
-        costs_df['stroke_cost'] = np.where(
-            np.random.random(len(costs_df)) < stroke_rate,
-            self.cost_params.stroke_cost, 0
-        )
-        
-        # Acute kidney injury
-        aki_rate = 0.25  # 25% AKI rate
-        costs_df['aki_cost'] = np.where(
-            np.random.random(len(costs_df)) < aki_rate,
-            self.cost_params.aki_cost, 0
-        )
-        
-        # Infection
-        infection_rate = 0.20  # 20% infection rate
-        costs_df['infection_cost'] = np.where(
-            np.random.random(len(costs_df)) < infection_rate,
-            self.cost_params.infection_cost, 0
-        )
-        
-        costs_df['complication_costs'] = (
-            costs_df['bleeding_cost'] + 
-            costs_df['stroke_cost'] + 
-            costs_df['aki_cost'] + 
-            costs_df['infection_cost']
-        )
-        
-        # Circuit replacement costs (every 7 days on average)
-        costs_df['circuit_replacements'] = np.ceil(costs_df['ecmo_duration_days'] / 7)
-        costs_df['circuit_costs'] = (
-            costs_df['circuit_replacements'] * self.cost_params.circuit_replacement_cost
-        )
-        
-        # Total costs
-        costs_df['total_cost_usd'] = (
-            costs_df['total_daily_costs'] + 
-            costs_df['cannulation_cost'] + 
-            costs_df['decannulation_cost'] + 
-            costs_df['complication_costs'] + 
-            costs_df['circuit_costs']
-        )
-        
-        # Apply Taiwan cost adjustment
-        costs_df['total_cost_usd'] *= self.cost_params.taiwan_cost_multiplier
-        
-        logger.info(f"Mean ECMO cost: ${costs_df['total_cost_usd'].mean():.0f} USD")
-        
-        return costs_df
-    
-    def calculate_qaly_outcomes(self, patient_data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Calculate Quality-Adjusted Life Years (QALYs) for ECMO patients
-        
-        Args:
-            patient_data: DataFrame with patient outcomes
-            
-        Returns:
-            DataFrame with QALY calculations
-        """
-        logger.info(f"Calculating QALYs for {len(patient_data)} patients")
-        
-        qaly_df = patient_data.copy()
-        
-        # Determine neurologic outcome categories
-        if 'neurologic_outcome' not in qaly_df.columns:
-            # Simulate neurologic outcomes based on survival
-            survived = qaly_df.get('survived_to_discharge', True)
-            outcomes = []
-            for surv in survived:
-                if not surv:
-                    outcomes.append('death')
-                else:
-                    # Probability distribution for survivors
-                    rand = np.random.random()
-                    if rand < 0.50:
-                        outcomes.append('normal')
-                    elif rand < 0.75:
-                        outcomes.append('mild_deficit')
-                    elif rand < 0.90:
-                        outcomes.append('moderate_deficit')
-                    else:
-                        outcomes.append('severe_deficit')
-            qaly_df['neurologic_outcome'] = outcomes
-        
-        # Map outcomes to utilities
-        utility_map = {
-            'death': self.utility_params.death,
-            'normal': self.utility_params.post_ecmo_good,
-            'mild_deficit': self.utility_params.post_ecmo_good,
-            'moderate_deficit': self.utility_params.post_ecmo_moderate,
-            'severe_deficit': self.utility_params.post_ecmo_severe
-        }
-        
-        qaly_df['post_ecmo_utility'] = qaly_df['neurologic_outcome'].map(utility_map)
-        
-        # Calculate remaining life expectancy based on age and outcome
-        base_life_expectancy = 80 - qaly_df.get('age_years', 60)  # Simplified
-        
-        # Adjust for critical illness
-        qaly_df['adjusted_life_expectancy'] = np.maximum(
-            base_life_expectancy - self.utility_params.life_expectancy_reduction,
-            0
-        )
-        
-        # Calculate QALYs gained
-        qaly_df['qalys_gained'] = (
-            qaly_df['post_ecmo_utility'] * qaly_df['adjusted_life_expectancy']
-        )
-        
-        # For patients who died, QALYs = 0
-        qaly_df.loc[qaly_df['neurologic_outcome'] == 'death', 'qalys_gained'] = 0
-        
-        # Discount future QALYs
-        if self.discount_rate > 0:
-            discount_factor = 1 / (1 + self.discount_rate) ** (
-                qaly_df['adjusted_life_expectancy'] / 2
-            )  # Mid-point discounting
-            qaly_df['discounted_qalys'] = qaly_df['qalys_gained'] * discount_factor
-        else:
-            qaly_df['discounted_qalys'] = qaly_df['qalys_gained']
-        
-        logger.info(f"Mean QALYs gained: {qaly_df['qalys_gained'].mean():.2f}")
-        
-        return qaly_df
-    
-    def calculate_icer(self, intervention_data: pd.DataFrame, 
-                      comparator_data: pd.DataFrame) -> Dict:
-        """
-        Calculate Incremental Cost-Effectiveness Ratio (ICER)
-        
-        Args:
-            intervention_data: Data for ECMO intervention group
-            comparator_data: Data for comparator (standard care) group
-            
-        Returns:
-            Dictionary with ICER analysis results
-        """
-        logger.info("Calculating ICER for ECMO vs standard care")
-        
-        # Calculate mean costs and QALYs for each group
-        intervention_cost = intervention_data['total_cost_usd'].mean()
-        intervention_qaly = intervention_data['discounted_qalys'].mean()
-        
-        comparator_cost = comparator_data['total_cost_usd'].mean()
-        comparator_qaly = comparator_data['discounted_qalys'].mean()
-        
-        # Calculate incremental values
-        incremental_cost = intervention_cost - comparator_cost
-        incremental_qaly = intervention_qaly - comparator_qaly
-        
-        # Calculate ICER
-        if incremental_qaly > 0:
-            icer = incremental_cost / incremental_qaly
-            interpretation = self._interpret_icer(icer)
-        else:
-            icer = float('inf') if incremental_cost > 0 else float('-inf')
-            interpretation = "Dominated" if incremental_cost > 0 else "Dominant"
-        
-        results = {
-            'intervention_cost': intervention_cost,
-            'intervention_qaly': intervention_qaly,
-            'comparator_cost': comparator_cost,
-            'comparator_qaly': comparator_qaly,
-            'incremental_cost': incremental_cost,
-            'incremental_qaly': incremental_qaly,
-            'icer': icer,
-            'interpretation': interpretation,
-            'cost_effective_50k': icer < 50000 if icer != float('inf') else False,
-            'cost_effective_100k': icer < 100000 if icer != float('inf') else False
-        }
-        
-        logger.info(f"ICER: ${icer:,.0f} per QALY gained" if icer != float('inf') else f"ICER: {icer}")
-        
-        return results
-    
-    def _interpret_icer(self, icer: float) -> str:
-        """Interpret ICER value"""
-        if icer < 0:
-            return "Cost-saving (dominant)"
-        elif icer < 20000:
-            return "Very cost-effective"
-        elif icer < 50000:
-            return "Cost-effective"
-        elif icer < 100000:
-            return "Moderately cost-effective"
-        else:
-            return "Not cost-effective"
-    
-    def budget_impact_analysis(self, population_size: int, 
-                              ecmo_utilization_rate: float,
-                              years: int = 5) -> Dict:
-        """
-        Perform budget impact analysis for ECMO program
-        
-        Args:
-            population_size: Target population size
-            ecmo_utilization_rate: Proportion receiving ECMO (0-1)
-            years: Time horizon for analysis
-            
-        Returns:
-            Dictionary with budget impact results
-        """
-        logger.info(f"Performing budget impact analysis for {population_size} population over {years} years")
-        
-        # Estimate annual ECMO cases
-        annual_ecmo_cases = population_size * ecmo_utilization_rate
-        
-        # Generate representative cost data
-        np.random.seed(42)
-        demo_data = pd.DataFrame({
-            'ecmo_duration_hours': np.random.exponential(120, int(annual_ecmo_cases)),
-            'survived_to_discharge': np.random.choice([True, False], 
-                                                    int(annual_ecmo_cases), 
-                                                    p=[0.6, 0.4]),
-            'age_years': np.random.normal(55, 15, int(annual_ecmo_cases))
-        })
-        
-        cost_data = self.calculate_ecmo_costs(demo_data)
-        qaly_data = self.calculate_qaly_outcomes(cost_data)
-        
-        # Calculate annual costs
-        annual_total_cost = cost_data['total_cost_usd'].sum()
-        annual_qalys = qaly_data['discounted_qalys'].sum()
-        
-        # Project over multiple years
-        yearly_results = []
-        for year in range(1, years + 1):
-            # Apply discount factor
-            discount_factor = 1 / (1 + self.discount_rate) ** (year - 1)
-            
-            yearly_cost = annual_total_cost * discount_factor
-            yearly_qalys = annual_qalys * discount_factor
-            
-            yearly_results.append({
-                'year': year,
-                'cases': annual_ecmo_cases,
-                'total_cost': yearly_cost,
-                'total_qalys': yearly_qalys,
-                'cost_per_case': yearly_cost / annual_ecmo_cases,
-                'qalys_per_case': yearly_qalys / annual_ecmo_cases
-            })
-        
-        # Summary statistics
-        total_cost_all_years = sum(r['total_cost'] for r in yearly_results)
-        total_qalys_all_years = sum(r['total_qalys'] for r in yearly_results)
-        
-        budget_impact = {
-            'population_size': population_size,
-            'utilization_rate': ecmo_utilization_rate,
-            'annual_cases': annual_ecmo_cases,
-            'time_horizon_years': years,
-            'yearly_results': yearly_results,
-            'total_program_cost': total_cost_all_years,
-            'total_program_qalys': total_qalys_all_years,
-            'cost_per_qaly': total_cost_all_years / total_qalys_all_years if total_qalys_all_years > 0 else 0
-        }
-        
-        logger.info(f"Total {years}-year budget impact: ${total_cost_all_years:,.0f}")
-        
-        return budget_impact
-    
-    def sensitivity_analysis(self, base_case_data: pd.DataFrame, 
-                           parameter_ranges: Dict) -> Dict:
-        """
-        Perform one-way sensitivity analysis on key parameters
-        
-        Args:
-            base_case_data: Base case patient data
-            parameter_ranges: Dictionary of parameter ranges to test
-            
-        Returns:
-            Dictionary with sensitivity analysis results
-        """
-        logger.info("Performing sensitivity analysis")
-        
-        sensitivity_results = {}
-        base_costs = self.calculate_ecmo_costs(base_case_data)
-        base_qalys = self.calculate_qaly_outcomes(base_costs)
-        base_icer = base_costs['total_cost_usd'].mean() / base_qalys['discounted_qalys'].mean()
-        
-        for param, (low, high) in parameter_ranges.items():
-            param_results = []
-            
-            # Test parameter at low, base, and high values
-            for value in [low, getattr(self.cost_params, param), high]:
-                # Temporarily modify parameter
-                original_value = getattr(self.cost_params, param)
-                setattr(self.cost_params, param, value)
-                
-                # Recalculate
-                test_costs = self.calculate_ecmo_costs(base_case_data)
-                test_qalys = self.calculate_qaly_outcomes(test_costs)
-                test_icer = test_costs['total_cost_usd'].mean() / test_qalys['discounted_qalys'].mean()
-                
-                param_results.append({
-                    'parameter_value': value,
-                    'icer': test_icer,
-                    'change_from_base': (test_icer - base_icer) / base_icer
-                })
-                
-                # Restore original value
-                setattr(self.cost_params, param, original_value)
-            
-            sensitivity_results[param] = param_results
-        
-        return sensitivity_results
-    
-    def plot_cost_effectiveness_plane(self, intervention_data: pd.DataFrame,
-                                    comparator_data: pd.DataFrame):
-        """
-        Plot cost-effectiveness plane
-        
-        Args:
-            intervention_data: ECMO intervention data
-            comparator_data: Standard care comparator data
-        """
-        plt.figure(figsize=(10, 8))
-        
-        # Calculate incremental costs and effects
-        int_cost = intervention_data['total_cost_usd'].values
-        int_qaly = intervention_data['discounted_qalys'].values
-        comp_cost = comparator_data['total_cost_usd'].values
-        comp_qaly = comparator_data['discounted_qalys'].values
-        
-        # For plotting, we'll use mean values with confidence intervals
-        inc_cost_mean = int_cost.mean() - comp_cost.mean()
-        inc_qaly_mean = int_qaly.mean() - comp_qaly.mean()
-        
-        # Plot point
-        plt.scatter(inc_qaly_mean, inc_cost_mean, s=100, c='red', 
-                   label='ECMO vs Standard Care', alpha=0.7)
-        
-        # Add willingness-to-pay thresholds
-        qaly_range = np.linspace(-0.5, max(inc_qaly_mean * 1.5, 1), 100)
-        wtp_50k = qaly_range * 50000
-        wtp_100k = qaly_range * 100000
-        
-        plt.plot(qaly_range, wtp_50k, '--', color='orange', label='$50,000/QALY threshold')
-        plt.plot(qaly_range, wtp_100k, '--', color='green', label='$100,000/QALY threshold')
-        
-        # Formatting
-        plt.axhline(y=0, color='black', linestyle='-', alpha=0.3)
-        plt.axvline(x=0, color='black', linestyle='-', alpha=0.3)
-        
-        plt.xlabel('Incremental QALYs')
-        plt.ylabel('Incremental Cost ($USD)')
-        plt.title('Cost-Effectiveness Plane: ECMO vs Standard Care')
-        plt.legend()
-        plt.grid(True, alpha=0.3)
-        
-        # Add quadrant labels
-        plt.text(inc_qaly_mean/2, max(inc_cost_mean, wtp_100k.max())*0.8, 
-                'More effective\nMore expensive', ha='center', alpha=0.6)
-        
-        plt.tight_layout()
-        plt.savefig('cost_effectiveness_plane.png', dpi=300, bbox_inches='tight')
-        plt.show()
 
-
-def generate_demo_economic_data(n_patients: int = 500) -> pd.DataFrame:
-    """Generate demo data for economic analysis"""
-    np.random.seed(42)
-    
-    data = {
-        'patient_id': [f'PT{i:04d}' for i in range(n_patients)],
-        'age_years': np.random.normal(55, 15, n_patients).clip(18, 85),
-        'ecmo_duration_hours': np.random.exponential(120, n_patients).clip(24, 720),
-        'survived_to_discharge': np.random.choice([True, False], n_patients, p=[0.6, 0.4]),
-        'ecmo_type': np.random.choice(['VA', 'VV'], n_patients, p=[0.6, 0.4])
+    # Currency conversion rates (to TWD)
+    CURRENCY_RATES = {
+        'TWD': 1.0,
+        'USD': 31.5,  # Approximate TWD/USD
+        'EUR': 34.2,  # Approximate TWD/EUR
     }
-    
+
+    # Taiwan NHI DRG reimbursement rates (TWD) - approximate values
+    NHI_DRG_RATES = {
+        'ECMO_VA': 800000,  # DRG for VA-ECMO
+        'ECMO_VV': 750000,  # DRG for VV-ECMO
+        'ICU_daily_cap': 45000,  # Daily ICU cap
+    }
+
+    def __init__(
+        self,
+        icu_cost_per_day: float = 30000,
+        ward_cost_per_day: float = 8000,
+        ecmo_daily_consumable: float = 15000,
+        ecmo_setup_cost: float = 100000,
+        qaly_gain_per_survivor: float = 1.5,
+        time_horizon_years: float = 1.0,
+        discount_rate: float = 0.03,
+        currency: str = "TWD",
+        use_nhi_rates: bool = False,
+        ecmo_mode: str = "VA"
+    ):
+        """
+        Initialize cost-effectiveness parameters.
+
+        Args:
+            icu_cost_per_day: Daily ICU cost (local currency)
+            ward_cost_per_day: Daily ward cost (local currency)
+            ecmo_daily_consumable: Daily ECMO consumable cost
+            ecmo_setup_cost: One-time ECMO setup/cannulation cost
+            qaly_gain_per_survivor: Average QALY gained per survivor
+            time_horizon_years: Analysis time horizon (typically 1-5 years)
+            discount_rate: Annual discount rate for future costs/benefits
+            currency: Local currency code (TWD, USD, EUR)
+            use_nhi_rates: Use Taiwan NHI DRG reimbursement rates
+            ecmo_mode: ECMO mode ('VA' or 'VV') for NHI calculations
+        """
+        self.icu_cost_per_day = icu_cost_per_day
+        self.ward_cost_per_day = ward_cost_per_day
+        self.ecmo_daily_consumable = ecmo_daily_consumable
+        self.ecmo_setup_cost = ecmo_setup_cost
+        self.qaly_gain_per_survivor = qaly_gain_per_survivor
+        self.time_horizon_years = time_horizon_years
+        self.discount_rate = discount_rate
+        self.currency = currency
+        self.use_nhi_rates = use_nhi_rates
+        self.ecmo_mode = ecmo_mode
+
+        # Validate currency
+        if currency not in self.CURRENCY_RATES:
+            raise ValueError(f"Unsupported currency: {currency}. Use TWD, USD, or EUR.")
+
+    def compute_total_cost(
+        self,
+        icu_los_days: float,
+        ward_los_days: float,
+        ecmo_days: float
+    ) -> float:
+        """
+        Compute total hospitalization cost.
+
+        Args:
+            icu_los_days: ICU length of stay
+            ward_los_days: Ward length of stay
+            ecmo_days: Days on ECMO support
+
+        Returns:
+            Total cost in local currency
+        """
+        icu_cost = icu_los_days * self.icu_cost_per_day
+        ward_cost = ward_los_days * self.ward_cost_per_day
+        ecmo_cost = self.ecmo_setup_cost + (ecmo_days * self.ecmo_daily_consumable)
+
+        return icu_cost + ward_cost + ecmo_cost
+
+    def compute_qaly(
+        self,
+        survival_rate: float,
+        quality_of_life: float = 1.0
+    ) -> float:
+        """
+        Compute quality-adjusted life years.
+
+        Args:
+            survival_rate: Proportion surviving to discharge
+            quality_of_life: Quality of life multiplier (0-1)
+
+        Returns:
+            Expected QALYs
+        """
+        # Discount future QALYs
+        discount_factor = 1 / (1 + self.discount_rate) ** self.time_horizon_years
+        qaly = survival_rate * self.qaly_gain_per_survivor * quality_of_life * discount_factor
+        return qaly
+
+    def compute_cer(
+        self,
+        total_cost: float,
+        qaly: float
+    ) -> float:
+        """
+        Compute Cost-Effectiveness Ratio (CER).
+
+        CER = Total Cost / QALYs gained
+
+        Args:
+            total_cost: Total intervention cost
+            qaly: Quality-adjusted life years
+
+        Returns:
+            CER in local currency per QALY
+        """
+        if qaly <= 0:
+            return float('inf')
+        return total_cost / qaly
+
+    def compute_icer(
+        self,
+        cost_intervention: float,
+        cost_comparator: float,
+        qaly_intervention: float,
+        qaly_comparator: float
+    ) -> float:
+        """
+        Compute Incremental Cost-Effectiveness Ratio (ICER).
+
+        ICER = (Cost_intervention - Cost_comparator) / (QALY_intervention - QALY_comparator)
+
+        Args:
+            cost_intervention: Cost of intervention arm
+            cost_comparator: Cost of standard care
+            qaly_intervention: QALYs from intervention
+            qaly_comparator: QALYs from standard care
+
+        Returns:
+            ICER in local currency per QALY gained
+        """
+        delta_cost = cost_intervention - cost_comparator
+        delta_qaly = qaly_intervention - qaly_comparator
+
+        if delta_qaly <= 0:
+            # Intervention dominated or no benefit
+            return float('inf') if delta_cost > 0 else float('-inf')
+
+        return delta_cost / delta_qaly
+
+    def analyze_by_quintile(
+        self,
+        quintile_data: pd.DataFrame,
+        quintile_col: str = 'risk_quintile',
+        icu_los_col: str = 'icu_los_days',
+        ward_los_col: str = 'ward_los_days',
+        ecmo_days_col: str = 'ecmo_days',
+        survival_col: str = 'survival_to_discharge'
+    ) -> pd.DataFrame:
+        """
+        Perform cost-effectiveness analysis stratified by risk quintile.
+
+        Args:
+            quintile_data: DataFrame with patient-level data
+            quintile_col: Column containing risk quintile (1-5)
+            icu_los_col: ICU length of stay column
+            ward_los_col: Ward length of stay column
+            ecmo_days_col: ECMO days column
+            survival_col: Survival outcome column (0/1)
+
+        Returns:
+            DataFrame with quintile-specific CER metrics
+        """
+        results = []
+
+        for quintile in sorted(quintile_data[quintile_col].unique()):
+            qdata = quintile_data[quintile_data[quintile_col] == quintile]
+
+            # Mean values per quintile
+            mean_icu_los = qdata[icu_los_col].mean()
+            mean_ward_los = qdata[ward_los_col].mean()
+            mean_ecmo_days = qdata[ecmo_days_col].mean()
+            survival_rate = qdata[survival_col].mean()
+            n_patients = len(qdata)
+
+            # Cost and effectiveness
+            total_cost = self.compute_total_cost(
+                mean_icu_los,
+                mean_ward_los,
+                mean_ecmo_days
+            )
+            qaly = self.compute_qaly(survival_rate)
+            cer = self.compute_cer(total_cost, qaly)
+
+            results.append({
+                'quintile': quintile,
+                'n_patients': n_patients,
+                'survival_rate': survival_rate,
+                'mean_icu_los_days': mean_icu_los,
+                'mean_ward_los_days': mean_ward_los,
+                'mean_ecmo_days': mean_ecmo_days,
+                'total_cost': total_cost,
+                'qaly': qaly,
+                'cer': cer,
+                'cost_per_survivor': total_cost / survival_rate if survival_rate > 0 else float('inf')
+            })
+
+        return pd.DataFrame(results)
+
+    def compute_icer_by_quintile(
+        self,
+        quintile_results: pd.DataFrame,
+        baseline_quintile: int = 1
+    ) -> pd.DataFrame:
+        """
+        Compute ICER for each quintile relative to baseline.
+
+        Args:
+            quintile_results: Results from analyze_by_quintile()
+            baseline_quintile: Reference quintile (typically lowest risk)
+
+        Returns:
+            DataFrame with incremental analysis
+        """
+        baseline = quintile_results[quintile_results['quintile'] == baseline_quintile].iloc[0]
+
+        icer_results = []
+        for _, row in quintile_results.iterrows():
+            if row['quintile'] == baseline_quintile:
+                icer = 0  # No incremental cost vs. self
+            else:
+                icer = self.compute_icer(
+                    row['total_cost'],
+                    baseline['total_cost'],
+                    row['qaly'],
+                    baseline['qaly']
+                )
+
+            icer_results.append({
+                'quintile': row['quintile'],
+                'icer_vs_baseline': icer,
+                'incremental_cost': row['total_cost'] - baseline['total_cost'],
+                'incremental_qaly': row['qaly'] - baseline['qaly']
+            })
+
+        return pd.DataFrame(icer_results)
+
+    def compute_ceac(
+        self,
+        quintile_results: pd.DataFrame,
+        wtp_thresholds: np.ndarray = None,
+        n_simulations: int = 1000,
+        cost_std_pct: float = 0.2,
+        qaly_std_pct: float = 0.15
+    ) -> pd.DataFrame:
+        """
+        Compute Cost-Effectiveness Acceptability Curve (CEAC) via probabilistic sensitivity analysis.
+
+        CEAC shows probability that intervention is cost-effective at different
+        willingness-to-pay (WTP) thresholds.
+
+        Args:
+            quintile_results: Results from analyze_by_quintile()
+            wtp_thresholds: Array of WTP thresholds to evaluate (local currency/QALY)
+            n_simulations: Number of Monte Carlo simulations
+            cost_std_pct: Standard deviation of costs as % of mean
+            qaly_std_pct: Standard deviation of QALYs as % of mean
+
+        Returns:
+            DataFrame with CEAC data (quintile, WTP threshold, probability cost-effective)
+        """
+        if wtp_thresholds is None:
+            # Default WTP thresholds: 0 to 3x GDP per capita (Taiwan ~$30k USD, ~900k TWD)
+            wtp_thresholds = np.linspace(0, 3000000, 50)
+
+        ceac_data = []
+
+        for _, row in quintile_results.iterrows():
+            quintile = row['quintile']
+            mean_cost = row['total_cost']
+            mean_qaly = row['qaly']
+
+            # Monte Carlo simulation with uncertainty
+            cost_sim = np.random.normal(
+                mean_cost,
+                mean_cost * cost_std_pct,
+                n_simulations
+            )
+            qaly_sim = np.random.normal(
+                mean_qaly,
+                mean_qaly * qaly_std_pct,
+                n_simulations
+            )
+
+            # Ensure non-negative values
+            cost_sim = np.maximum(cost_sim, 0)
+            qaly_sim = np.maximum(qaly_sim, 0.001)
+
+            # Compute probability cost-effective at each WTP threshold
+            for wtp in wtp_thresholds:
+                nmb = (wtp * qaly_sim) - cost_sim  # Net Monetary Benefit
+                prob_cost_effective = np.mean(nmb > 0)
+
+                ceac_data.append({
+                    'quintile': quintile,
+                    'wtp_threshold': wtp,
+                    'probability_cost_effective': prob_cost_effective
+                })
+
+        return pd.DataFrame(ceac_data)
+
+    def sensitivity_analysis(
+        self,
+        base_case: Dict,
+        parameters: Dict[str, Tuple[float, float, float]]
+    ) -> pd.DataFrame:
+        """
+        One-way sensitivity analysis.
+
+        Args:
+            base_case: Dictionary with base case values
+                       (icu_los, ward_los, ecmo_days, survival_rate)
+            parameters: Dict mapping parameter name to (low, base, high) values
+
+        Returns:
+            DataFrame with sensitivity results
+        """
+        results = []
+
+        for param_name, (low, base, high) in parameters.items():
+            for value, scenario in [(low, 'low'), (base, 'base'), (high, 'high')]:
+                # Update parameter
+                case = base_case.copy()
+
+                if param_name in ['icu_los', 'ward_los', 'ecmo_days', 'survival_rate']:
+                    case[param_name] = value
+                else:
+                    # Cost parameter - update object attribute
+                    setattr(self, param_name, value)
+
+                # Recompute
+                total_cost = self.compute_total_cost(
+                    case.get('icu_los', base_case['icu_los']),
+                    case.get('ward_los', base_case['ward_los']),
+                    case.get('ecmo_days', base_case['ecmo_days'])
+                )
+                qaly = self.compute_qaly(case.get('survival_rate', base_case['survival_rate']))
+                cer = self.compute_cer(total_cost, qaly)
+
+                results.append({
+                    'parameter': param_name,
+                    'scenario': scenario,
+                    'value': value,
+                    'total_cost': total_cost,
+                    'qaly': qaly,
+                    'cer': cer
+                })
+
+        return pd.DataFrame(results)
+
+    def convert_currency(self, amount: float, to_currency: str) -> float:
+        """
+        Convert amount from base currency to target currency.
+
+        Args:
+            amount: Amount in base currency
+            to_currency: Target currency code
+
+        Returns:
+            Converted amount
+        """
+        if to_currency not in self.CURRENCY_RATES:
+            raise ValueError(f"Unsupported currency: {to_currency}")
+
+        # Convert to TWD first, then to target
+        amount_twd = amount * self.CURRENCY_RATES[self.currency]
+        return amount_twd / self.CURRENCY_RATES[to_currency]
+
+    def compute_nhi_reimbursement(
+        self,
+        icu_los_days: float,
+        ecmo_days: float
+    ) -> Dict[str, float]:
+        """
+        Compute Taiwan NHI reimbursement and hospital margin.
+
+        Args:
+            icu_los_days: ICU length of stay
+            ecmo_days: Days on ECMO support
+
+        Returns:
+            Dictionary with reimbursement, actual cost, and margin
+        """
+        drg_key = f'ECMO_{self.ecmo_mode}'
+        drg_payment = self.NHI_DRG_RATES.get(drg_key, 0)
+
+        # Additional ICU daily payments (beyond DRG)
+        icu_additional = min(icu_los_days * 10000, icu_los_days * self.NHI_DRG_RATES['ICU_daily_cap'])
+
+        total_reimbursement = drg_payment + icu_additional
+
+        # Compute actual cost
+        actual_cost = self.compute_total_cost(
+            icu_los_days=icu_los_days,
+            ward_los_days=0,  # NHI typically only covers ICU
+            ecmo_days=ecmo_days
+        )
+
+        margin = total_reimbursement - actual_cost
+        margin_pct = (margin / total_reimbursement * 100) if total_reimbursement > 0 else 0
+
+        return {
+            'drg_payment': drg_payment,
+            'icu_additional': icu_additional,
+            'total_reimbursement': total_reimbursement,
+            'actual_cost': actual_cost,
+            'margin': margin,
+            'margin_pct': margin_pct
+        }
+
+    def probabilistic_sensitivity_analysis(
+        self,
+        base_case: Dict,
+        parameter_distributions: Dict[str, Tuple[str, tuple]],
+        n_simulations: int = 10000,
+        seed: int = 42
+    ) -> pd.DataFrame:
+        """
+        Monte Carlo probabilistic sensitivity analysis (PSA).
+
+        Args:
+            base_case: Dictionary with base case values
+                       (icu_los, ward_los, ecmo_days, survival_rate)
+            parameter_distributions: Dict mapping parameter name to (dist_type, params)
+                                    dist_type: 'normal', 'lognormal', 'gamma', 'beta', 'uniform'
+                                    params: distribution parameters
+            n_simulations: Number of Monte Carlo simulations
+            seed: Random seed for reproducibility
+
+        Returns:
+            DataFrame with simulation results (cost, qaly, cer, nmb for each iteration)
+        """
+        np.random.seed(seed)
+        results = []
+
+        for i in range(n_simulations):
+            sim_case = base_case.copy()
+
+            # Sample parameters from distributions
+            for param_name, (dist_type, dist_params) in parameter_distributions.items():
+                if dist_type == 'normal':
+                    mean, std = dist_params
+                    value = np.random.normal(mean, std)
+                elif dist_type == 'lognormal':
+                    mean, std = dist_params
+                    value = np.random.lognormal(mean, std)
+                elif dist_type == 'gamma':
+                    shape, scale = dist_params
+                    value = np.random.gamma(shape, scale)
+                elif dist_type == 'beta':
+                    alpha, beta = dist_params
+                    value = np.random.beta(alpha, beta)
+                elif dist_type == 'uniform':
+                    low, high = dist_params
+                    value = np.random.uniform(low, high)
+                else:
+                    warnings.warn(f"Unknown distribution type: {dist_type}")
+                    continue
+
+                # Ensure positive values for most parameters
+                if param_name != 'survival_rate':
+                    value = max(0.001, value)
+                else:
+                    value = np.clip(value, 0.001, 0.999)
+
+                # Update parameter
+                if param_name in sim_case:
+                    sim_case[param_name] = value
+                else:
+                    setattr(self, param_name, value)
+
+            # Compute outcomes
+            total_cost = self.compute_total_cost(
+                sim_case.get('icu_los', base_case['icu_los']),
+                sim_case.get('ward_los', base_case['ward_los']),
+                sim_case.get('ecmo_days', base_case['ecmo_days'])
+            )
+            qaly = self.compute_qaly(sim_case.get('survival_rate', base_case['survival_rate']))
+            cer = self.compute_cer(total_cost, qaly)
+
+            # Net Monetary Benefit at different WTP thresholds
+            wtp_thresholds = [500000, 1000000, 1500000, 2000000, 3000000]
+            nmb_values = {f'nmb_wtp_{wtp}': (wtp * qaly) - total_cost for wtp in wtp_thresholds}
+
+            results.append({
+                'iteration': i,
+                'total_cost': total_cost,
+                'qaly': qaly,
+                'cer': cer,
+                **nmb_values
+            })
+
+        return pd.DataFrame(results)
+
+    def two_way_sensitivity_analysis(
+        self,
+        base_case: Dict,
+        param1_name: str,
+        param1_range: np.ndarray,
+        param2_name: str,
+        param2_range: np.ndarray
+    ) -> pd.DataFrame:
+        """
+        Two-way sensitivity analysis for tornado diagrams and heat maps.
+
+        Args:
+            base_case: Dictionary with base case values
+            param1_name: First parameter name
+            param1_range: Array of values for first parameter
+            param2_name: Second parameter name
+            param2_range: Array of values for second parameter
+
+        Returns:
+            DataFrame with results for all combinations
+        """
+        results = []
+
+        for p1_val in param1_range:
+            for p2_val in param2_range:
+                case = base_case.copy()
+
+                # Update parameters
+                if param1_name in case:
+                    case[param1_name] = p1_val
+                else:
+                    setattr(self, param1_name, p1_val)
+
+                if param2_name in case:
+                    case[param2_name] = p2_val
+                else:
+                    setattr(self, param2_name, p2_val)
+
+                # Compute outcomes
+                total_cost = self.compute_total_cost(
+                    case.get('icu_los', base_case['icu_los']),
+                    case.get('ward_los', base_case['ward_los']),
+                    case.get('ecmo_days', base_case['ecmo_days'])
+                )
+                qaly = self.compute_qaly(case.get('survival_rate', base_case['survival_rate']))
+                cer = self.compute_cer(total_cost, qaly)
+
+                results.append({
+                    param1_name: p1_val,
+                    param2_name: p2_val,
+                    'total_cost': total_cost,
+                    'qaly': qaly,
+                    'cer': cer
+                })
+
+        return pd.DataFrame(results)
+
+    def value_of_information_analysis(
+        self,
+        psa_results: pd.DataFrame,
+        wtp_threshold: float = 1500000,
+        population_size: int = 1000,
+        time_horizon_years: int = 5
+    ) -> Dict[str, float]:
+        """
+        Expected Value of Perfect Information (EVPI) analysis.
+
+        EVPI represents the maximum amount worth paying for perfect information
+        to eliminate decision uncertainty.
+
+        Args:
+            psa_results: Results from probabilistic_sensitivity_analysis()
+            wtp_threshold: Willingness-to-pay threshold
+            population_size: Relevant population per year
+            time_horizon_years: Years over which decision is relevant
+
+        Returns:
+            Dictionary with EVPI metrics
+        """
+        nmb_col = f'nmb_wtp_{int(wtp_threshold)}'
+
+        if nmb_col not in psa_results.columns:
+            # Compute NMB
+            nmb = (wtp_threshold * psa_results['qaly']) - psa_results['total_cost']
+        else:
+            nmb = psa_results[nmb_col]
+
+        # Expected NMB under current uncertainty
+        expected_nmb = nmb.mean()
+
+        # Expected NMB with perfect information (max in each iteration)
+        perfect_info_nmb = nmb.max()
+
+        # EVPI per person
+        evpi_per_person = max(0, perfect_info_nmb - expected_nmb)
+
+        # EVPI for population over time horizon
+        # Discount future population benefits
+        discount_factor = sum([1 / (1 + self.discount_rate) ** t for t in range(time_horizon_years)])
+        evpi_population = evpi_per_person * population_size * discount_factor
+
+        return {
+            'evpi_per_person': evpi_per_person,
+            'evpi_population': evpi_population,
+            'expected_nmb': expected_nmb,
+            'perfect_info_nmb': perfect_info_nmb,
+            'wtp_threshold': wtp_threshold,
+            'population_size': population_size,
+            'time_horizon_years': time_horizon_years
+        }
+
+    def budget_impact_analysis(
+        self,
+        current_scenario: Dict,
+        new_scenario: Dict,
+        population_size: int,
+        uptake_rate: float = 1.0,
+        years: int = 5
+    ) -> pd.DataFrame:
+        """
+        Budget impact analysis comparing current practice to new intervention.
+
+        Args:
+            current_scenario: Dict with current practice parameters
+                            (icu_los, ward_los, ecmo_days, survival_rate, n_patients)
+            new_scenario: Dict with new intervention parameters
+            population_size: Total eligible population per year
+            uptake_rate: Proportion adopting new intervention (0-1)
+            years: Number of years to project
+
+        Returns:
+            DataFrame with yearly budget impact
+        """
+        results = []
+
+        for year in range(1, years + 1):
+            # Linear uptake over time
+            current_year_uptake = min(uptake_rate * (year / years), 1.0)
+            n_current = int(population_size * (1 - current_year_uptake))
+            n_new = int(population_size * current_year_uptake)
+
+            # Current practice costs
+            cost_current_per_patient = self.compute_total_cost(
+                current_scenario['icu_los'],
+                current_scenario['ward_los'],
+                current_scenario['ecmo_days']
+            )
+            total_cost_current = cost_current_per_patient * n_current
+
+            # New intervention costs
+            cost_new_per_patient = self.compute_total_cost(
+                new_scenario['icu_los'],
+                new_scenario['ward_los'],
+                new_scenario['ecmo_days']
+            )
+            total_cost_new = cost_new_per_patient * n_new
+
+            # Total budget
+            total_budget = total_cost_current + total_cost_new
+
+            # Incremental budget impact
+            incremental_cost = (cost_new_per_patient - cost_current_per_patient) * n_new
+
+            # Discount future costs
+            discount_factor = 1 / (1 + self.discount_rate) ** (year - 1)
+            discounted_total = total_budget * discount_factor
+            discounted_incremental = incremental_cost * discount_factor
+
+            # QALYs
+            qaly_current = self.compute_qaly(current_scenario['survival_rate']) * n_current
+            qaly_new = self.compute_qaly(new_scenario['survival_rate']) * n_new
+            total_qaly = qaly_current + qaly_new
+            incremental_qaly = (
+                self.compute_qaly(new_scenario['survival_rate']) -
+                self.compute_qaly(current_scenario['survival_rate'])
+            ) * n_new
+
+            results.append({
+                'year': year,
+                'n_current_practice': n_current,
+                'n_new_intervention': n_new,
+                'uptake_rate': current_year_uptake,
+                'total_budget': total_budget,
+                'incremental_budget': incremental_cost,
+                'discounted_total_budget': discounted_total,
+                'discounted_incremental_budget': discounted_incremental,
+                'total_qaly': total_qaly,
+                'incremental_qaly': incremental_qaly,
+                'icer': incremental_cost / incremental_qaly if incremental_qaly > 0 else float('inf')
+            })
+
+        return pd.DataFrame(results)
+
+
+def generate_synthetic_quintile_data(
+    n_patients: int = 500,
+    seed: int = 42
+) -> pd.DataFrame:
+    """
+    Generate synthetic patient data for demonstration.
+
+    Quintile 1 (lowest risk): Better outcomes, shorter LOS
+    Quintile 5 (highest risk): Worse outcomes, longer LOS
+
+    Args:
+        n_patients: Total number of patients
+        seed: Random seed for reproducibility
+
+    Returns:
+        DataFrame with synthetic patient data
+    """
+    np.random.seed(seed)
+
+    data = []
+    patients_per_quintile = n_patients // 5
+
+    for quintile in range(1, 6):
+        # Risk-stratified outcomes
+        # Higher quintile = higher risk = worse outcomes
+        base_survival = 0.65 - (quintile - 1) * 0.10  # 65% → 25%
+        base_icu_los = 10 + (quintile - 1) * 5        # 10 → 30 days
+        base_ward_los = 5 + (quintile - 1) * 3        # 5 → 17 days
+        base_ecmo_days = 5 + (quintile - 1) * 2       # 5 → 13 days
+
+        for _ in range(patients_per_quintile):
+            survival = int(np.random.random() < base_survival)
+
+            # Survivors have shorter LOS
+            icu_los = max(1, np.random.normal(
+                base_icu_los * (0.8 if survival else 1.2),
+                base_icu_los * 0.3
+            ))
+            ward_los = max(0, np.random.normal(
+                base_ward_los * survival,  # Non-survivors don't go to ward
+                base_ward_los * 0.4
+            ))
+            ecmo_days = max(1, np.random.normal(
+                base_ecmo_days,
+                base_ecmo_days * 0.25
+            ))
+
+            data.append({
+                'patient_id': len(data) + 1,
+                'risk_quintile': quintile,
+                'survival_to_discharge': survival,
+                'icu_los_days': icu_los,
+                'ward_los_days': ward_los,
+                'ecmo_days': ecmo_days
+            })
+
     return pd.DataFrame(data)
 
 
-if __name__ == "__main__":
-    # Demo analysis
-    logger.info("ECMO Cost-Effectiveness Analysis Demo")
-    
-    # Generate demo data
-    ecmo_data = generate_demo_economic_data(500)
-    
-    # Initialize analyzer
-    analyzer = ECMOCostEffectivenessAnalyzer()
-    
-    # Calculate costs and QALYs
-    cost_data = analyzer.calculate_ecmo_costs(ecmo_data)
-    qaly_data = analyzer.calculate_qaly_outcomes(cost_data)
-    
-    # Budget impact analysis
-    budget_impact = analyzer.budget_impact_analysis(
-        population_size=100000,
-        ecmo_utilization_rate=0.001,  # 0.1% utilization rate
-        years=5
+if __name__ == '__main__':
+    # Demonstration with synthetic data
+    print("=" * 80)
+    print("ECMO Cost-Effectiveness Analysis (WP2)")
+    print("=" * 80)
+
+    # Initialize analysis with Taiwan-specific parameters
+    cea = ECMOCostEffectivenessAnalysis(
+        icu_cost_per_day=30000,      # TWD
+        ward_cost_per_day=8000,       # TWD
+        ecmo_daily_consumable=15000,  # TWD
+        ecmo_setup_cost=100000,       # TWD
+        qaly_gain_per_survivor=1.5,
+        time_horizon_years=1.0,
+        discount_rate=0.03,
+        currency="TWD"
     )
-    
-    logger.info(f"Budget impact results: {budget_impact}")
-    logger.info("Cost-effectiveness analysis complete")
+
+    # Generate synthetic data
+    patient_data = generate_synthetic_quintile_data(n_patients=500)
+    print(f"\nGenerated {len(patient_data)} synthetic patient records")
+    print(f"Risk quintiles: {sorted(patient_data['risk_quintile'].unique())}")
+
+    # Analyze by quintile
+    print("\n" + "=" * 80)
+    print("COST-EFFECTIVENESS RATIO (CER) BY RISK QUINTILE")
+    print("=" * 80)
+    quintile_results = cea.analyze_by_quintile(patient_data)
+    print(quintile_results.to_string(index=False))
+
+    # Incremental analysis
+    print("\n" + "=" * 80)
+    print("INCREMENTAL COST-EFFECTIVENESS RATIO (ICER)")
+    print("=" * 80)
+    icer_results = cea.compute_icer_by_quintile(quintile_results, baseline_quintile=1)
+    print(icer_results.to_string(index=False))
+
+    # CEAC
+    print("\n" + "=" * 80)
+    print("COST-EFFECTIVENESS ACCEPTABILITY CURVE (CEAC)")
+    print("=" * 80)
+    print("Computing probabilistic sensitivity analysis...")
+    ceac_data = cea.compute_ceac(
+        quintile_results,
+        wtp_thresholds=np.array([500000, 1000000, 1500000, 2000000, 3000000]),
+        n_simulations=1000
+    )
+    print("\nSample CEAC results (WTP thresholds in TWD/QALY):")
+    print(ceac_data.head(15).to_string(index=False))
+
+    # Sensitivity analysis
+    print("\n" + "=" * 80)
+    print("ONE-WAY SENSITIVITY ANALYSIS (Quintile 3)")
+    print("=" * 80)
+    q3_data = patient_data[patient_data['risk_quintile'] == 3]
+    base_case = {
+        'icu_los': q3_data['icu_los_days'].mean(),
+        'ward_los': q3_data['ward_los_days'].mean(),
+        'ecmo_days': q3_data['ecmo_days'].mean(),
+        'survival_rate': q3_data['survival_to_discharge'].mean()
+    }
+
+    sensitivity_params = {
+        'icu_cost_per_day': (20000, 30000, 40000),
+        'survival_rate': (0.30, base_case['survival_rate'], 0.60)
+    }
+
+    sens_results = cea.sensitivity_analysis(base_case, sensitivity_params)
+    print(sens_results.to_string(index=False))
+
+    print("\n" + "=" * 80)
+    print("Analysis complete. Use dashboard.py for interactive visualization.")
+    print("=" * 80)

@@ -1,0 +1,1420 @@
+# VR Training Scenarios for ECMO Clinical Decision Support
+# Taiwan ECMO CDSS with NIRS Monitoring Integration
+# ELSO-aligned training scenarios for VA and VV ECMO
+
+metadata:
+  version: "1.0"
+  last_updated: "2025-10-05"
+  elso_guideline_version: "5.3"
+  total_scenarios: 10
+  difficulty_levels: [beginner, intermediate, advanced]
+
+# ========== CORE SCENARIOS (Required for all participants) ==========
+
+scenarios:
+  - id: "SCN-001"
+    title: "VA ECMO Cannulation - Femoral Approach for Cardiogenic Shock"
+    difficulty: beginner
+    category: core
+    ecmo_mode: VA
+    duration_minutes: 45
+    elso_reference: "ELSO Adult Cardiac Failure Supplement 2021"
+
+    learning_objectives:
+      - "Demonstrate safe femoral artery and vein cannulation for VA ECMO"
+      - "Apply ultrasound guidance for vessel access"
+      - "Recognize and prevent limb ischemia"
+      - "Initiate VA ECMO with appropriate flow settings"
+      - "Interpret cerebral NIRS during VA ECMO initiation"
+
+    clinical_context:
+      patient_profile:
+        age: 58
+        sex: male
+        weight_kg: 75
+        bsa_m2: 1.9
+        primary_diagnosis: "Acute myocardial infarction with cardiogenic shock"
+        hemodynamics:
+          map_mmhg: 52
+          hr_bpm: 125
+          cvp_mmhg: 18
+          ci_l_min_m2: 1.4
+          lactate_mmol_l: 8.2
+        labs:
+          ph: 7.22
+          pao2_mmhg: 85
+          paco2_mmhg: 48
+          hgb_g_dl: 11.2
+          platelets: 185
+          inr: 1.3
+        support:
+          mechanical_ventilation: true
+          vasopressors: "Norepinephrine 0.4 mcg/kg/min, Epinephrine 0.15 mcg/kg/min"
+          iabp: false
+
+      indication: "Refractory cardiogenic shock despite maximal medical therapy"
+      contraindications_ruled_out:
+        - "No recent intracranial hemorrhage"
+        - "No severe aortic regurgitation"
+        - "No uncontrolled malignancy"
+        - "Neurologically intact"
+
+    initial_state:
+      location: "Cardiac ICU"
+      equipment_available:
+        - "Ultrasound machine with vascular probe"
+        - "ECMO circuit (primed and ready)"
+        - "Femoral cannulation kit"
+        - "Distal perfusion catheter kit"
+        - "Cerebral and somatic NIRS monitors"
+      team_members:
+        - "Perfusionist"
+        - "ICU nurse"
+        - "Cardiovascular surgeon (backup)"
+      time_constraint: "30 minutes to cannulation (ongoing cardiac arrest risk)"
+
+    decision_points:
+      - id: "DP-001-01"
+        timestamp_min: 2
+        question: "Select appropriate cannulation site"
+        options:
+          - value: "femoral_percutaneous"
+            correct: true
+            feedback: "Correct. Femoral percutaneous approach is appropriate for urgent VA ECMO in adults."
+          - value: "central_aortic"
+            correct: false
+            feedback: "Incorrect. Central cannulation requires sternotomy and is not appropriate in this urgent setting."
+          - value: "axillary_artery"
+            correct: false
+            feedback: "Suboptimal. While possible, axillary approach takes longer and requires surgical cutdown."
+        consequences:
+          correct: "Proceed with femoral cannulation"
+          incorrect: "Delay in ECMO initiation, worsening shock"
+
+      - id: "DP-001-02"
+        timestamp_min: 8
+        question: "Arterial cannula size selection (patient BSA 1.9 m²)"
+        options:
+          - value: "15_fr"
+            correct: false
+            feedback: "Too small. Unlikely to achieve adequate arterial flow for adult VA ECMO."
+          - value: "17_fr"
+            correct: true
+            feedback: "Correct. 17-19 Fr arterial cannula appropriate for adult VA ECMO."
+          - value: "21_fr"
+            correct: false
+            feedback: "Too large. Increases risk of limb ischemia without significant flow benefit."
+        scoring_weight: 15
+
+      - id: "DP-001-03"
+        timestamp_min: 12
+        question: "Venous cannula placement - target location?"
+        options:
+          - value: "femoral_vein_to_ra_junction"
+            correct: true
+            feedback: "Correct. Tip should reach right atrial-IVC junction for optimal drainage."
+          - value: "femoral_vein_iliofemoral"
+            correct: false
+            feedback: "Incorrect. Too shallow - will have poor drainage."
+          - value: "femoral_vein_to_svc"
+            correct: false
+            feedback: "Incorrect. Venous cannula advanced too far, may cause arrhythmia."
+
+      - id: "DP-001-04"
+        timestamp_min: 18
+        question: "Should distal perfusion catheter be placed?"
+        options:
+          - value: "yes_routinely"
+            correct: true
+            feedback: "Correct. Distal perfusion catheter recommended to prevent limb ischemia."
+          - value: "no_wait_for_ischemia"
+            correct: false
+            feedback: "Incorrect. Prophylactic placement is preferred over waiting for ischemia."
+          - value: "only_if_pulses_absent"
+            correct: false
+            feedback: "Suboptimal. Absence of pulses indicates ischemia is already occurring."
+        critical: true
+
+      - id: "DP-001-05"
+        timestamp_min: 25
+        question: "Initial VA ECMO flow rate (BSA 1.9 m²)?"
+        options:
+          - value: "2.0_l_min"
+            correct: false
+            feedback: "Too low. Unlikely to provide adequate circulatory support."
+          - value: "3.5-4.0_l_min"
+            correct: true
+            feedback: "Correct. Target flow index 2.0-2.5 L/min/m² (3.8-4.75 L/min for BSA 1.9)."
+          - value: "6.0_l_min"
+            correct: false
+            feedback: "Too high. Risk of flash pulmonary edema and increased LV afterload."
+        scoring_weight: 20
+
+      - id: "DP-001-06"
+        timestamp_min: 30
+        question: "Cerebral rScO₂ is 45% (baseline 65%). Next step?"
+        nirs_data:
+          cerebral_rSO2: 45
+          somatic_rSO2: 58
+          trend: "declining since ECMO start"
+        options:
+          - value: "increase_ecmo_flow"
+            correct: true
+            feedback: "Correct. Low cerebral NIRS suggests inadequate cerebral perfusion. Increase flow."
+          - value: "decrease_ecmo_flow"
+            correct: false
+            feedback: "Incorrect. Decreasing flow will worsen cerebral hypoperfusion."
+          - value: "ignore_monitor_later"
+            correct: false
+            feedback: "Critical error. Cerebral desaturation requires immediate intervention."
+        critical: true
+        scoring_weight: 20
+
+    success_criteria:
+      mandatory:
+        - "Sterile technique maintained throughout procedure"
+        - "Ultrasound guidance used for vessel access"
+        - "Cannulas placed in correct anatomical positions"
+        - "Distal perfusion catheter placed"
+        - "ECMO flow initiated within target range (3.5-4.5 L/min)"
+        - "No critical errors (air embolism, vessel perforation, etc.)"
+        - "NIRS monitoring established and interpreted"
+
+      time_based:
+        excellent: "< 20 minutes to ECMO flow"
+        good: "20-30 minutes"
+        acceptable: "30-40 minutes"
+        unacceptable: "> 40 minutes"
+
+      performance_metrics:
+        first_attempt_success: true
+        critical_errors: 0
+        major_errors: "≤ 1"
+        minor_errors: "≤ 3"
+
+    complications:
+      - type: "limb_ischemia"
+        trigger: "No distal perfusion catheter placed"
+        onset_min: 35
+        manifestation: "Absent pedal pulses, cool foot"
+        required_action: "Emergency distal perfusion catheter placement"
+        failure_consequence: "Compartment syndrome, limb loss"
+
+      - type: "inadequate_venous_drainage"
+        trigger: "Venous cannula positioned too shallow"
+        onset_min: 28
+        manifestation: "High venous line pressure, poor ECMO flow"
+        required_action: "Advance venous cannula under fluoroscopy/echo guidance"
+
+      - type: "differential_hypoxia"
+        trigger: "Poor native cardiac output recovery"
+        onset_min: 40
+        manifestation: "Cerebral rScO₂ < somatic rScO₂, upper extremity cyanosis"
+        required_action: "Consider upper body NIRS monitoring, may need central cannulation"
+
+    assessment_rubric:
+      technical_skill: 30
+      clinical_decision_making: 30
+      nirs_interpretation: 20
+      complication_management: 10
+      communication: 10
+
+    debriefing_points:
+      - "Discuss femoral vs central VA ECMO cannulation indications"
+      - "Review NIRS physiology in VA ECMO (differential hypoxia)"
+      - "Emphasize importance of distal perfusion monitoring"
+      - "Discuss transition from cannulation to ongoing ECMO management"
+      - "Review ELSO guidelines for VA ECMO flow targets"
+
+  # ==========================================================================
+
+  - id: "SCN-002"
+    title: "VV ECMO Cannulation - Bicaval Approach for ARDS"
+    difficulty: beginner
+    category: core
+    ecmo_mode: VV
+    duration_minutes: 45
+    elso_reference: "ELSO Adult Respiratory Failure Supplement 2021"
+
+    learning_objectives:
+      - "Demonstrate bicaval VV ECMO cannulation technique"
+      - "Recognize appropriate VV ECMO indications per ELSO criteria"
+      - "Optimize lung-protective ventilation during ECMO initiation"
+      - "Interpret somatic NIRS during VV ECMO"
+      - "Troubleshoot recirculation in VV ECMO"
+
+    clinical_context:
+      patient_profile:
+        age: 42
+        sex: female
+        weight_kg: 68
+        bsa_m2: 1.75
+        primary_diagnosis: "Severe COVID-19 ARDS"
+        respiratory_status:
+          pao2_fio2_ratio: 58
+          murray_score: 3.5
+          vent_mode: "Pressure control"
+          fio2: 1.0
+          peep_cmh2o: 18
+          pip_cmh2o: 38
+          plateau_pressure: 32
+          tidal_volume_ml: 280
+          compliance: "very poor"
+        hemodynamics:
+          map_mmhg: 78
+          hr_bpm: 112
+          ci_l_min_m2: 3.2
+          lactate_mmol_l: 2.1
+        labs:
+          ph: 7.18
+          pao2_mmhg: 58
+          paco2_mmhg: 68
+          hgb_g_dl: 10.8
+          platelets: 165
+
+      indication: "Refractory hypoxemia despite optimal ventilator management (PF ratio <80, FiO2 1.0)"
+      vv_ecmo_criteria_met:
+        - "PaO2/FiO2 < 80 on FiO2 ≥ 0.9"
+        - "Murray score ≥ 3.0"
+        - "Potentially reversible lung injury"
+        - "< 7 days of high-pressure mechanical ventilation"
+
+    initial_state:
+      location: "Medical ICU"
+      equipment_available:
+        - "Ultrasound with TEE capability"
+        - "VV ECMO circuit (primed)"
+        - "Bicaval dual-lumen cannula (31 Fr Avalon Elite)"
+        - "Fluoroscopy available"
+        - "Somatic NIRS monitors"
+      team_members:
+        - "Perfusionist"
+        - "Respiratory therapist"
+        - "ICU nurse"
+
+    decision_points:
+      - id: "DP-002-01"
+        timestamp_min: 3
+        question: "Select VV ECMO cannulation strategy"
+        options:
+          - value: "single_bicaval_dlc"
+            correct: true
+            feedback: "Correct. Single bicaval dual-lumen cannula (Avalon) is preferred for VV ECMO."
+          - value: "femoral_jugular_two_cannulas"
+            correct: false
+            feedback: "Suboptimal. Two-site cannulation is alternative but bicaval DLC preferred if available."
+          - value: "femoral_femoral"
+            correct: false
+            feedback: "Incorrect. Femoral-femoral VV has high recirculation, poor gas exchange."
+
+      - id: "DP-002-02"
+        timestamp_min: 8
+        question: "Bicaval cannula size for 68 kg patient?"
+        options:
+          - value: "23_fr"
+            correct: false
+            feedback: "Too small. Insufficient flow for adult VV ECMO."
+          - value: "27_fr"
+            correct: false
+            feedback: "Borderline. May be adequate but larger preferred for optimal flow."
+          - value: "31_fr"
+            correct: true
+            feedback: "Correct. 31 Fr Avalon Elite provides adequate flow for adult VV ECMO."
+        scoring_weight: 10
+
+      - id: "DP-002-03"
+        timestamp_min: 15
+        question: "Correct bicaval cannula position (confirmed by TEE/fluoro)?"
+        imaging_description: "Distal drainage port in IVC, proximal drainage in SVC, return port in RA directed toward TV"
+        options:
+          - value: "described_position"
+            correct: true
+            feedback: "Correct. Optimal position: IVC drainage distal, SVC drainage proximal, return to RA."
+          - value: "all_ports_in_ra"
+            correct: false
+            feedback: "Incorrect. Will have high recirculation, poor drainage."
+          - value: "return_port_in_svc"
+            correct: false
+            feedback: "Incorrect. Return port must be in RA directed toward tricuspid valve."
+
+      - id: "DP-002-04"
+        timestamp_min: 20
+        question: "Initial VV ECMO blood flow rate?"
+        options:
+          - value: "2.5_l_min"
+            correct: false
+            feedback: "Too low. Insufficient for adequate oxygenation."
+          - value: "4.0-4.5_l_min"
+            correct: true
+            feedback: "Correct. Target 60-80 mL/kg/min (4.1-5.4 L/min for 68 kg)."
+          - value: "7.0_l_min"
+            correct: false
+            feedback: "Too high. Exceeds typical VV ECMO flow requirements."
+        scoring_weight: 15
+
+      - id: "DP-002-05"
+        timestamp_min: 22
+        question: "Initial sweep gas flow rate?"
+        options:
+          - value: "equal_to_blood_flow"
+            correct: true
+            feedback: "Correct. Initial sweep gas = blood flow (1:1 ratio), then titrate to PaCO2."
+          - value: "half_of_blood_flow"
+            correct: false
+            feedback: "Suboptimal. May not provide adequate CO2 removal initially."
+          - value: "maximum_15_l_min"
+            correct: false
+            feedback: "Excessive. Will cause hypocarbia and equipment strain."
+
+      - id: "DP-002-06"
+        timestamp_min: 25
+        question: "Ventilator settings after VV ECMO initiation?"
+        current_settings:
+          mode: "Pressure control"
+          fio2: 1.0
+          peep: 18
+          pip: 38
+          rr: 28
+        options:
+          - value: "continue_current_settings"
+            correct: false
+            feedback: "Incorrect. Must reduce to lung-protective settings now that ECMO provides gas exchange."
+          - value: "reduce_to_rest_settings"
+            correct: true
+            feedback: "Correct. FiO2 0.3-0.5, PEEP 10-15, Pplat <25, TV 4-6 mL/kg, RR 10."
+          - value: "extubate_immediately"
+            correct: false
+            feedback: "Incorrect. Patient still requires mechanical ventilation on VV ECMO."
+        critical: true
+        scoring_weight: 20
+
+      - id: "DP-002-07"
+        timestamp_min: 30
+        question: "Post-ECMO ABG: pH 7.32, PaO2 85, PaCO2 45, SaO2 94%. Pre-ECMO SaO2 88%, SpO2 89%. Recirculation?"
+        options:
+          - value: "no_recirculation_adequate"
+            correct: false
+            feedback: "Incorrect. SaO2 pre-oxy 88% vs post-oxy 94% suggests significant recirculation."
+          - value: "yes_significant_recirculation"
+            correct: true
+            feedback: "Correct. Recirculation fraction ≈ (94-88)/(100-88) = 50%. Reposition cannula."
+          - value: "cannot_determine"
+            correct: false
+            feedback: "Incorrect. Can calculate recirculation from pre/post-oxy saturations."
+        critical: true
+        scoring_weight: 20
+
+    success_criteria:
+      mandatory:
+        - "Appropriate VV ECMO indication confirmed"
+        - "Bicaval cannula positioned correctly (confirmed by imaging)"
+        - "ECMO flow achieving target (4-5 L/min)"
+        - "Lung-protective ventilation implemented post-ECMO"
+        - "Recirculation assessed and optimized (<20%)"
+        - "No critical errors"
+
+      time_based:
+        excellent: "< 25 minutes to ECMO flow"
+        good: "25-35 minutes"
+        acceptable: "35-45 minutes"
+
+      performance_metrics:
+        cannula_repositions: "≤ 1"
+        critical_errors: 0
+        major_errors: "≤ 1"
+
+    complications:
+      - type: "high_recirculation"
+        trigger: "Cannula malposition (return and drainage ports too close)"
+        onset_min: 28
+        manifestation: "SpO2 remains low despite adequate ECMO flow, calculated recirculation >30%"
+        required_action: "Reposition cannula under TEE/fluoro guidance"
+
+      - type: "arrhythmia_during_cannulation"
+        trigger: "Cannula advancement through RA"
+        onset_min: 12
+        manifestation: "PVCs, brief NSVT"
+        required_action: "Withdraw cannula slightly, advance slowly with TEE guidance"
+
+      - type: "barotrauma"
+        trigger: "Failure to reduce ventilator settings post-ECMO"
+        onset_min: 35
+        manifestation: "Increasing subcutaneous emphysema, pneumothorax"
+        required_action: "Immediate chest tube, reduce ventilator pressures"
+
+    assessment_rubric:
+      technical_skill: 30
+      clinical_decision_making: 30
+      ventilator_management: 20
+      recirculation_assessment: 10
+      communication: 10
+
+    debriefing_points:
+      - "Discuss VV vs VA ECMO indications"
+      - "Review bicaval cannula positioning techniques"
+      - "Emphasize importance of lung-protective ventilation on ECMO"
+      - "Explain recirculation calculation and troubleshooting"
+      - "Review ELSO criteria for VV ECMO initiation"
+
+  # ==========================================================================
+
+  - id: "SCN-003"
+    title: "Circuit Emergency - Oxygenator Failure Recognition and Management"
+    difficulty: intermediate
+    category: core
+    ecmo_mode: both
+    duration_minutes: 30
+    elso_reference: "ELSO General Guidelines - Circuit Emergencies"
+
+    learning_objectives:
+      - "Recognize signs of oxygenator failure (clot, plasma leak)"
+      - "Execute emergency circuit change procedure"
+      - "Maintain patient safety during circuit emergency"
+      - "Communicate effectively during crisis situation"
+      - "Interpret NIRS during circuit emergency"
+
+    clinical_context:
+      patient_profile:
+        current_ecmo_mode: "VA"
+        ecmo_day: 5
+        primary_diagnosis: "Post-cardiotomy cardiogenic shock"
+        current_status: "Hemodynamically stable on ECMO, awaiting cardiac recovery"
+
+      pre_emergency_state:
+        ecmo_flow_l_min: 3.8
+        pump_speed_rpm: 3200
+        pre_oxy_pressure_mmhg: -45
+        post_oxy_pressure_mmhg: 285
+        delta_p_mmhg: 330
+        sweep_gas_l_min: 3.5
+        fio2_ecmo: 1.0
+        circuit_age_days: 5
+        anticoagulation: "Heparin, ACT target 180-220 sec"
+        current_act_sec: 195
+
+    initial_state:
+      time_of_day: "2:00 AM"
+      team_available:
+        - "ICU nurse (at bedside)"
+        - "Perfusionist (in-house, 2 min away)"
+        - "ECMO physician (on-call, 5 min away)"
+      backup_circuit: "Available in ICU, primed and ready"
+
+    decision_points:
+      - id: "DP-003-01"
+        timestamp_min: 0
+        question: "ECMO alarm: High post-oxygenator pressure (now 420 mmHg, was 285). Delta-P now 465 mmHg. What is happening?"
+        vital_signs:
+          map_mmhg: 68
+          spo2_pct: 92
+          cerebral_rSO2: 58
+        options:
+          - value: "oxygenator_clot"
+            correct: true
+            feedback: "Correct. Acute increase in delta-P suggests oxygenator thrombosis."
+          - value: "pump_malfunction"
+            correct: false
+            feedback: "Incorrect. Pump malfunction would affect flow, not isolated pressure increase."
+          - value: "cannula_occlusion"
+            correct: false
+            feedback: "Incorrect. Cannula issues would show different pressure pattern."
+        critical: true
+        scoring_weight: 25
+
+      - id: "DP-003-02"
+        timestamp_min: 1
+        question: "Immediate action while calling for help?"
+        options:
+          - value: "stop_ecmo_immediately"
+            correct: false
+            feedback: "Dangerous. Patient is ECMO-dependent. Maintain flow if possible."
+          - value: "reduce_flow_observe"
+            correct: false
+            feedback: "Suboptimal. Will worsen patient status. Need definitive action."
+          - value: "call_code_prepare_circuit_change"
+            correct: true
+            feedback: "Correct. Call for help, prepare backup circuit, prepare for emergency change."
+        critical: true
+        scoring_weight: 25
+
+      - id: "DP-003-03"
+        timestamp_min: 3
+        question: "Delta-P now 520 mmHg and rising. Circuit shows dark clot in oxygenator. Team assembling. Next step?"
+        options:
+          - value: "give_heparin_bolus"
+            correct: false
+            feedback: "Incorrect. Won't reverse existing clot. Delays definitive treatment."
+          - value: "emergency_circuit_change_now"
+            correct: true
+            feedback: "Correct. Progressive oxygenator clot requires immediate circuit change."
+          - value: "wait_for_attending_physician"
+            correct: false
+            feedback: "Dangerous delay. Empowered nurse/perfusionist should initiate change."
+        critical: true
+        scoring_weight: 25
+
+      - id: "DP-003-04"
+        timestamp_min: 5
+        question: "During circuit change, patient MAP drops to 45 mmHg, cerebral rScO₂ drops from 58 to 35%. Action?"
+        options:
+          - value: "continue_circuit_change_quickly"
+            correct: true
+            feedback: "Correct. Complete circuit change rapidly to restore ECMO support."
+          - value: "abort_reconnect_old_circuit"
+            correct: false
+            feedback: "Dangerous. Old circuit is clotted and will fail completely."
+          - value: "start_cpr"
+            correct: false
+            feedback: "Premature. Complete circuit change first (patient still has native circulation)."
+        scoring_weight: 20
+
+      - id: "DP-003-05"
+        timestamp_min: 8
+        question: "New circuit connected. What are your post-change assessments?"
+        options:
+          - value: "check_flow_pressures_gas_exchange_nirs"
+            correct: true
+            feedback: "Correct. Systematic assessment: flow, pressures, ABG, NIRS, cannula position."
+          - value: "just_monitor_patient_vitals"
+            correct: false
+            feedback: "Insufficient. Must verify circuit function comprehensively."
+          - value: "obtain_chest_xray_only"
+            correct: false
+            feedback: "Incomplete. Need immediate bedside assessments first."
+
+    success_criteria:
+      mandatory:
+        - "Oxygenator failure recognized within 2 minutes"
+        - "Help summoned immediately"
+        - "Emergency circuit change completed within 10 minutes"
+        - "Patient safety maintained (no cardiac arrest)"
+        - "Post-change circuit function verified"
+        - "Clear crisis communication demonstrated"
+
+      time_based:
+        excellent: "Circuit change completed in < 6 minutes"
+        good: "6-10 minutes"
+        acceptable: "10-15 minutes"
+        failure: "> 15 minutes"
+
+      performance_metrics:
+        recognition_time_sec: "< 120"
+        circuit_change_time_min: "< 10"
+        critical_errors: 0
+
+    complications:
+      - type: "complete_oxygenator_failure"
+        trigger: "Delay in circuit change > 8 minutes"
+        manifestation: "Massive clot, circuit completely obstructed, flow stops"
+        required_action: "Immediate circuit change, hand crank if pump fails, CPR if arrest"
+
+      - type: "air_embolism_during_change"
+        trigger: "Improper de-airing of new circuit"
+        manifestation: "Visible air in arterial line, neurological change"
+        required_action: "Trendelenburg position, stop flow, aspirate air, neurological assessment"
+
+      - type: "hypotension_during_change"
+        trigger: "Expected during brief off-ECMO period"
+        manifestation: "MAP < 50, cerebral rScO₂ < 40%"
+        required_action: "Complete change rapidly, consider brief CPR if arrest, vasopressor bolus"
+
+    assessment_rubric:
+      problem_recognition: 30
+      crisis_management: 30
+      technical_skill: 20
+      communication: 10
+      patient_safety: 10
+
+    debriefing_points:
+      - "Discuss early signs of oxygenator failure (delta-P trending)"
+      - "Review emergency circuit change procedure step-by-step"
+      - "Emphasize importance of backup circuit readiness"
+      - "Discuss anticoagulation management to prevent clot"
+      - "Review crisis resource management and team communication"
+
+  # ==========================================================================
+
+  - id: "SCN-004"
+    title: "NIRS-Guided ECMO Optimization"
+    difficulty: intermediate
+    category: core
+    ecmo_mode: VA
+    duration_minutes: 35
+    elso_reference: "ELSO Guidelines + NIRS Monitoring Literature"
+
+    learning_objectives:
+      - "Interpret cerebral and somatic NIRS during VA ECMO"
+      - "Recognize differential hypoxia (North-South syndrome)"
+      - "Troubleshoot low NIRS values systematically"
+      - "Implement evidence-based interventions for NIRS abnormalities"
+      - "Integrate NIRS with other hemodynamic parameters"
+
+    clinical_context:
+      patient_profile:
+        age: 65
+        sex: male
+        ecmo_mode: "VA (femoral)"
+        ecmo_indication: "Massive PE with cardiac arrest (ECPR)"
+        ecmo_day: 2
+        neurological_exam: "Sedated, no focal deficits noted pre-ECMO"
+
+      current_ecmo_parameters:
+        flow_l_min: 4.2
+        flow_index: 2.1
+        pump_speed_rpm: 3400
+        sweep_gas: 4.0
+        fio2_ecmo: 0.8
+
+      current_vitals_labs:
+        native_hr: 95
+        map_mmhg: 75
+        spo2_right_hand: 88
+        spo2_left_foot: 98
+        abg_arterial:
+          ph: 7.38
+          pao2_mmhg: 95
+          paco2_mmhg: 42
+          sao2: 96
+        nirs_baseline_day1:
+          cerebral_right: 68
+          cerebral_left: 66
+          somatic_renal: 72
+
+    initial_state:
+      nirs_monitors:
+        cerebral_right: 48
+        cerebral_left: 46
+        somatic_renal: 68
+      trending: "Cerebral NIRS declined over past 4 hours from 65 to 48%"
+
+    decision_points:
+      - id: "DP-004-01"
+        timestamp_min: 2
+        question: "Cerebral rScO₂ 48% (baseline 68%), somatic rScO₂ 68%. SpO₂ right hand 88%, left foot 98%. Interpretation?"
+        options:
+          - value: "differential_hypoxia_north_south"
+            correct: true
+            feedback: "Correct. Upper body hypoxemia (low cerebral NIRS, low right hand SpO2) = differential hypoxia."
+          - value: "global_hypoperfusion"
+            correct: false
+            feedback: "Incorrect. Somatic NIRS is normal, suggests regional not global issue."
+          - value: "nirs_artifact"
+            correct: false
+            feedback: "Unlikely. Bilateral cerebral NIRS low, correlated with pulse ox finding."
+        critical: true
+        scoring_weight: 25
+
+      - id: "DP-004-02"
+        timestamp_min: 5
+        question: "Pathophysiology of differential hypoxia in VA ECMO?"
+        options:
+          - value: "poor_native_lv_function_hypoxemic_blood_to_brain"
+            correct: true
+            feedback: "Correct. Native LV ejects hypoxemic blood while ECMO supplies lower body with oxygenated blood."
+          - value: "ecmo_flow_too_low"
+            correct: false
+            feedback: "Partial. Low flow contributes but doesn't explain upper/lower body difference."
+          - value: "arterial_cannula_malposition"
+            correct: false
+            feedback: "Unlikely. Would affect all ECMO flow, not create differential."
+
+      - id: "DP-004-03"
+        timestamp_min: 8
+        question: "Initial intervention for differential hypoxia?"
+        options:
+          - value: "increase_ecmo_fio2_to_1.0"
+            correct: false
+            feedback: "Insufficient. Won't fix upper body hypoxemia from native lungs."
+          - value: "optimize_native_lung_oxygenation"
+            correct: true
+            feedback: "Correct. Increase vent FiO2, ensure adequate PEEP, check for pneumothorax."
+          - value: "convert_to_vv_ecmo"
+            correct: false
+            feedback: "Premature. Try optimization first. May need VAV conversion if refractory."
+        scoring_weight: 20
+
+      - id: "DP-004-04"
+        timestamp_min: 12
+        question: "After increasing vent FiO2 to 1.0, cerebral rScO₂ now 52% (improved but still low). Next intervention?"
+        options:
+          - value: "increase_ecmo_flow"
+            correct: true
+            feedback: "Correct. Increasing ECMO flow can improve overall perfusion and reduce LV ejection."
+          - value: "accept_current_values"
+            correct: false
+            feedback: "Suboptimal. Cerebral rScO2 52% is still low (target >55-60%)."
+          - value: "add_inotropes"
+            correct: false
+            feedback: "Contradictory. Inotropes increase LV function, worsening differential hypoxia."
+        scoring_weight: 20
+
+      - id: "DP-004-05"
+        timestamp_min: 18
+        question: "Cerebral rScO₂ now 42%, somatic 70%. ECMO flow increased to max 5.5 L/min. Vent FiO2 1.0. Still differential hypoxia. Options?"
+        options:
+          - value: "vav_ecmo_conversion"
+            correct: true
+            feedback: "Correct. Refractory differential hypoxia may require VAV ECMO (add VV return cannula)."
+          - value: "reduce_ecmo_support_increase_inotropes"
+            correct: false
+            feedback: "Dangerous. Will worsen perfusion and hypoxemia."
+          - value: "continue_current_management"
+            correct: false
+            feedback: "Unacceptable. Cerebral rScO2 42% indicates severe cerebral hypoxia."
+        critical: true
+        scoring_weight: 20
+
+      - id: "DP-004-06"
+        timestamp_min: 25
+        question: "Different scenario: Cerebral rScO₂ 45%, somatic rScO₂ 48% (both low). Interpretation?"
+        options:
+          - value: "global_hypoperfusion_low_flow"
+            correct: true
+            feedback: "Correct. Both cerebral and somatic NIRS low suggests inadequate ECMO flow."
+          - value: "differential_hypoxia"
+            correct: false
+            feedback: "Incorrect. Differential hypoxia shows regional difference (cerebral < somatic)."
+          - value: "anemia"
+            correct: false
+            feedback: "Partial. Anemia can lower NIRS but check flow/perfusion first."
+        scoring_weight: 15
+
+    success_criteria:
+      mandatory:
+        - "Differential hypoxia recognized correctly"
+        - "Systematic NIRS troubleshooting approach demonstrated"
+        - "Appropriate interventions implemented in sequence"
+        - "Integration of NIRS with pulse oximetry and ABG"
+        - "Escalation to VAV ECMO considered when appropriate"
+
+      performance_metrics:
+        nirs_interpretation_accuracy: "> 80%"
+        intervention_appropriateness: "≥ 4/5 Likert"
+        time_to_recognition: "< 5 minutes"
+
+    complications:
+      - type: "cerebral_hypoxia_seizure"
+        trigger: "Prolonged cerebral rScO2 < 40% without intervention"
+        onset_min: 22
+        manifestation: "Seizure activity on EEG, neurological deterioration"
+        required_action: "Urgent intervention (VAV conversion, neurological consult)"
+
+      - type: "flash_pulmonary_edema"
+        trigger: "Excessive ECMO flow increase without LV venting"
+        onset_min: 20
+        manifestation: "Worsening hypoxemia, pink frothy secretions"
+        required_action: "Reduce ECMO flow, increase PEEP, consider LV venting"
+
+    assessment_rubric:
+      nirs_interpretation: 40
+      clinical_reasoning: 30
+      intervention_selection: 20
+      integration_of_data: 10
+
+    debriefing_points:
+      - "Review NIRS physiology and measurement principles"
+      - "Discuss differential hypoxia mechanisms in VA ECMO"
+      - "Review troubleshooting algorithm for low NIRS"
+      - "Explain VAV ECMO indications and technique"
+      - "Emphasize importance of multi-modal neuromonitoring"
+
+  # ==========================================================================
+
+  - id: "SCN-005"
+    title: "ECMO Weaning Protocol - Step-wise Flow Reduction"
+    difficulty: intermediate
+    category: core
+    ecmo_mode: both
+    duration_minutes: 40
+    elso_reference: "ELSO Weaning Guidelines"
+
+    learning_objectives:
+      - "Assess readiness for ECMO weaning"
+      - "Execute systematic weaning protocol"
+      - "Monitor patient response to flow reduction"
+      - "Recognize weaning failure and respond appropriately"
+      - "Perform ECMO decannulation safely"
+
+    clinical_context:
+      patient_profile:
+        age: 52
+        sex: female
+        ecmo_mode: "VV"
+        primary_diagnosis: "Influenza ARDS"
+        ecmo_day: 12
+        clinical_course: "Improving lung compliance, decreasing FiO2 requirements"
+
+      current_status:
+        vent_settings:
+          mode: "Pressure support"
+          fio2: 0.4
+          peep: 10
+          ps: 12
+          rr_spontaneous: 18
+        ecmo_settings:
+          flow: 4.5
+          sweep: 4.0
+          fio2_ecmo: 0.6
+        current_abg:
+          ph: 7.42
+          pao2: 88
+          paco2: 41
+          sao2: 96
+        chest_xray: "Improving bilateral infiltrates, no pneumothorax"
+
+    initial_state:
+      weaning_readiness_criteria:
+        improving_lung_compliance: true
+        stable_hemodynamics: true
+        resolution_of_primary_disease: true
+        vent_fio2_achievable: "<0.5"
+        no_bleeding_complications: true
+
+    decision_points:
+      - id: "DP-005-01"
+        timestamp_min: 2
+        question: "Patient meets weaning criteria. Initial weaning step for VV ECMO?"
+        options:
+          - value: "reduce_sweep_gas_first"
+            correct: true
+            feedback: "Correct. For VV ECMO, reduce sweep gas first to assess native lung CO2 clearance."
+          - value: "reduce_blood_flow_first"
+            correct: false
+            feedback: "Suboptimal. Reducing sweep first is safer for assessing lung recovery."
+          - value: "stop_ecmo_immediately"
+            correct: false
+            feedback: "Dangerous. Must wean gradually with monitoring."
+        scoring_weight: 20
+
+      - id: "DP-005-02"
+        timestamp_min: 10
+        question: "Sweep gas reduced from 4.0 to 2.0 L/min. ABG after 30 min: pH 7.39, PaCO2 44, PaO2 86. Interpretation?"
+        options:
+          - value: "tolerating_well_continue_wean"
+            correct: true
+            feedback: "Correct. Minimal change in CO2, patient's lungs clearing CO2 adequately."
+          - value: "failing_wean_increase_sweep"
+            correct: false
+            feedback: "Incorrect. PaCO2 44 is acceptable, within normal range."
+          - value: "sweep_too_low_adjust_to_3.0"
+            correct: false
+            feedback: "Unnecessary. Current ABG is acceptable."
+        scoring_weight: 15
+
+      - id: "DP-005-03"
+        timestamp_min: 20
+        question: "Sweep now 1.0 L/min. Next step in VV ECMO wean?"
+        options:
+          - value: "reduce_blood_flow_gradually"
+            correct: true
+            feedback: "Correct. After sweep wean, reduce blood flow in 0.5-1.0 L/min decrements."
+          - value: "turn_off_sweep_completely"
+            correct: false
+            feedback: "Suboptimal. Can turn off sweep but typically reduce flow next."
+          - value: "decannulate_immediately"
+            correct: false
+            feedback: "Premature. Must assess tolerance to reduced blood flow first."
+        scoring_weight: 15
+
+      - id: "DP-005-04"
+        timestamp_min: 30
+        question: "Blood flow reduced from 4.5 to 2.0 L/min. ABG: pH 7.28, PaCO2 58, PaO2 62, SaO2 89%. Response?"
+        options:
+          - value: "failing_wean_increase_flow"
+            correct: true
+            feedback: "Correct. Respiratory acidosis and hypoxemia indicate weaning failure. Increase support."
+          - value: "continue_wean_acceptable_abg"
+            correct: false
+            feedback: "Incorrect. pH 7.28, PaO2 62, SaO2 89% are unacceptable."
+          - value: "increase_vent_settings_only"
+            correct: false
+            feedback: "Insufficient. Need to increase ECMO support. Lungs not ready."
+        critical: true
+        scoring_weight: 25
+
+      - id: "DP-005-05"
+        timestamp_min: 38
+        question: "Alternative scenario: Successfully weaned to flow 1.0 L/min, sweep 0. ABG normal. Ready for decannulation. Procedure?"
+        options:
+          - value: "clamp_cannula_observe_then_remove"
+            correct: true
+            feedback: "Correct. Clamp cannula, monitor for 4-6 hours, then surgical removal if stable."
+          - value: "pull_out_bedside_immediately"
+            correct: false
+            feedback: "Dangerous. Large-bore cannula removal requires surgical technique, pressure."
+          - value: "leave_in_place_as_backup"
+            correct: false
+            feedback: "Inappropriate. Clotted cannula is infection/embolism risk."
+        scoring_weight: 15
+
+      - id: "DP-005-06"
+        timestamp_min: 40
+        question: "Post-decannulation bleeding from femoral site. Management?"
+        options:
+          - value: "manual_pressure_20_min"
+            correct: true
+            feedback: "Correct. Manual pressure is first-line for post-decannulation hemostasis."
+          - value: "immediate_surgical_exploration"
+            correct: false
+            feedback: "Premature. Try manual pressure first unless massive hemorrhage."
+          - value: "reverse_anticoagulation_completely"
+            correct: false
+            feedback: "Risky. Balance hemostasis with thrombosis risk. Consider partial reversal."
+        scoring_weight: 10
+
+    success_criteria:
+      mandatory:
+        - "Weaning readiness assessed systematically"
+        - "Weaning protocol followed (sweep first, then flow)"
+        - "Appropriate monitoring during wean (ABGs, vital signs)"
+        - "Weaning failure recognized and responded to appropriately"
+        - "Decannulation performed safely (if scenario reaches this point)"
+
+      time_based:
+        weaning_trial_duration: "Typically 4-6 hours in real practice (condensed in simulation)"
+
+      performance_metrics:
+        correct_wean_sequence: "Yes/No"
+        recognition_of_wean_failure: "< 5 minutes"
+        patient_safety_maintained: true
+
+    complications:
+      - type: "wean_failure_respiratory"
+        trigger: "Lungs not recovered, premature weaning attempt"
+        manifestation: "Hypoxemia, hypercarbia, increased work of breathing"
+        required_action: "Increase ECMO support, reassess readiness criteria"
+
+      - type: "hemodynamic_instability_during_wean"
+        trigger: "Occult cardiac dysfunction revealed when ECMO reduced"
+        manifestation: "Hypotension, rising lactate, low cardiac output"
+        required_action: "Increase ECMO support, echocardiography, inotropes"
+
+      - type: "bleeding_post_decannulation"
+        trigger: "Anticoagulation, large-bore cannula site"
+        manifestation: "Femoral site bleeding, hematoma, hypotension"
+        required_action: "Manual pressure, consider reversal agents, surgical consult if massive"
+
+    assessment_rubric:
+      weaning_assessment: 25
+      protocol_adherence: 25
+      clinical_monitoring: 20
+      complication_recognition: 20
+      decannulation_technique: 10
+
+    debriefing_points:
+      - "Review ELSO weaning readiness criteria"
+      - "Discuss VV vs VA ECMO weaning differences"
+      - "Emphasize gradual weaning with close monitoring"
+      - "Review recognition of weaning failure"
+      - "Discuss decannulation techniques and complications"
+
+  # ==========================================================================
+  # ADVANCED SCENARIOS (Optional)
+  # ==========================================================================
+
+  - id: "SCN-006"
+    title: "ECPR - Emergency Cannulation During Active CPR"
+    difficulty: advanced
+    category: optional
+    ecmo_mode: VA
+    duration_minutes: 30
+    elso_reference: "ELSO ECPR Guidelines"
+
+    learning_objectives:
+      - "Execute rapid VA ECMO cannulation during ongoing CPR"
+      - "Manage low-flow time and minimize delays"
+      - "Coordinate team roles during ECPR"
+      - "Assess neurological prognosis post-ECPR"
+      - "Integrate therapeutic hypothermia protocols"
+
+    clinical_context:
+      patient_profile:
+        age: 48
+        sex: male
+        location: "Cardiac catheterization lab"
+        event: "Cardiac arrest during PCI for anterior STEMI"
+        time_of_arrest: "5 minutes ago"
+        cpr_quality: "High-quality CPR ongoing"
+        rhythm: "Refractory ventricular fibrillation"
+        interventions_so_far:
+          - "Intubated"
+          - "Epinephrine × 2"
+          - "Defibrillation × 4"
+          - "Amiodarone 300 mg"
+
+      ecpr_criteria:
+        witnessed_arrest: true
+        immediate_high_quality_cpr: true
+        shockable_rhythm: true
+        age_appropriate: true
+        no_terminal_illness: true
+        short_low_flow_time: "< 10 minutes target"
+
+    initial_state:
+      time_pressure: "CRITICAL - Minimize low-flow time"
+      team_assembled:
+        - "Interventional cardiologist"
+        - "Perfusionist"
+        - "ICU physician"
+        - "2 ICU nurses"
+        - "CPR provider"
+      equipment: "Portable ECMO circuit, ultrasound, femoral access kit"
+
+    decision_points:
+      - id: "DP-006-01"
+        timestamp_min: 0
+        question: "Patient in refractory VF arrest, 5 min of CPR. ECPR candidate?"
+        options:
+          - value: "yes_initiate_ecpr_immediately"
+            correct: true
+            feedback: "Correct. Meets ECPR criteria. Time-critical intervention."
+          - value: "continue_acls_few_more_cycles"
+            correct: false
+            feedback: "Incorrect. Further delay worsens neurological outcome. ECPR now."
+          - value: "terminate_resuscitation"
+            correct: false
+            feedback: "Premature. Patient is ECPR candidate with reasonable outcome potential."
+        critical: true
+        scoring_weight: 20
+
+      - id: "DP-006-02"
+        timestamp_min: 2
+        question: "During ECPR cannulation, CPR should be:"
+        options:
+          - value: "continued_throughout_cannulation"
+            correct: true
+            feedback: "Correct. Do not stop CPR. Cannulate during ongoing CPR."
+          - value: "paused_for_sterile_prep"
+            correct: false
+            feedback: "Incorrect. Every second of low-flow time matters. CPR continues."
+          - value: "stopped_once_groin_prepped"
+            correct: false
+            feedback: "Incorrect. CPR continues until ECMO flow established."
+        critical: true
+        scoring_weight: 20
+
+      - id: "DP-006-03"
+        timestamp_min: 8
+        question: "Arterial cannula in, venous cannula in. ECMO flow initiated. Patient still in VF. Action?"
+        options:
+          - value: "defibrillate_now_ecmo_provides_perfusion"
+            correct: true
+            feedback: "Correct. ECMO provides perfusion. Can now attempt defibrillation with better perfusion."
+          - value: "leave_in_vf_ecmo_perfusing"
+            correct: false
+            feedback: "Suboptimal. Should attempt cardioversion. Organized rhythm beneficial."
+          - value: "give_more_amiodarone_first"
+            correct: false
+            feedback: "Delay. Defibrillate first now that perfusion is adequate."
+        scoring_weight: 15
+
+      - id: "DP-006-04"
+        timestamp_min: 12
+        question: "Post-ECPR: Low-flow time was 12 minutes. Temperature 36.2°C. Neurological management?"
+        options:
+          - value: "targeted_temperature_management_33_36c"
+            correct: true
+            feedback: "Correct. TTM (33-36°C) is standard post-cardiac arrest care."
+          - value: "normothermia_only"
+            correct: false
+            feedback: "Suboptimal. TTM improves neurological outcomes post-arrest."
+          - value: "therapeutic_hypothermia_not_needed_on_ecmo"
+            correct: false
+            feedback: "Incorrect. TTM is still indicated post-ECPR."
+        scoring_weight: 15
+
+      - id: "DP-006-05"
+        timestamp_min: 15
+        question: "Cerebral rScO₂ monitoring post-ECPR shows 35%. MAP 70 on ECMO. Action?"
+        options:
+          - value: "increase_map_target_optimize_cerebral_perfusion"
+            correct: true
+            feedback: "Correct. Low cerebral NIRS post-ECPR may benefit from higher MAP (80-100)."
+          - value: "accept_current_map_70_adequate"
+            correct: false
+            feedback: "Suboptimal. Cerebral rScO2 35% is very low. Optimize perfusion."
+          - value: "decrease_ecmo_flow"
+            correct: false
+            feedback: "Incorrect. Would worsen cerebral perfusion."
+        scoring_weight: 15
+
+      - id: "DP-006-06"
+        timestamp_min: 20
+        question: "Family asks about neurological prognosis. Your response?"
+        options:
+          - value: "too_early_to_determine_need_72h_ttm_neuro_exam"
+            correct: true
+            feedback: "Correct. Cannot prognosticate until after TTM and neurological workup."
+          - value: "poor_prognosis_likely_brain_dead"
+            correct: false
+            feedback: "Inappropriate. Premature and inaccurate. Many ECPR patients survive neurologically intact."
+          - value: "excellent_prognosis_guaranteed_recovery"
+            correct: false
+            feedback: "False reassurance. Outcome uncertain, need time to assess."
+        scoring_weight: 15
+
+    success_criteria:
+      mandatory:
+        - "ECPR initiated for appropriate indication"
+        - "CPR continued during cannulation"
+        - "ECMO flow established within 15 minutes of arrest"
+        - "Post-ECPR care bundle implemented (TTM, neuroprotection)"
+        - "Cerebral NIRS monitoring established"
+
+      time_based:
+        total_low_flow_time: "< 20 minutes (arrest to ECMO flow)"
+        cannulation_time: "< 10 minutes"
+
+      performance_metrics:
+        low_flow_time_min: "< 20"
+        cpr_interruptions: "Minimal"
+        critical_errors: 0
+
+    complications:
+      - type: "prolonged_low_flow_time"
+        trigger: "Delayed cannulation > 15 minutes"
+        manifestation: "Poor neurological outcome likelihood increased"
+        required_action: "Expedite cannulation, consider termination if excessive delay"
+
+      - type: "vessel_injury_during_emergent_cannulation"
+        trigger: "Hasty technique without ultrasound"
+        manifestation: "Arterial perforation, retroperitoneal hematoma"
+        required_action: "Vascular surgery consult, alternative cannulation site"
+
+    assessment_rubric:
+      time_management: 30
+      team_coordination: 25
+      technical_skill: 20
+      post_ecpr_care: 15
+      communication: 10
+
+    debriefing_points:
+      - "Review ECPR indications and contraindications"
+      - "Discuss importance of minimizing low-flow time"
+      - "Emphasize teamwork and role clarity in ECPR"
+      - "Review post-ECPR care bundles (TTM, neuroprotection)"
+      - "Discuss neurological prognostication post-ECPR"
+
+  # ==========================================================================
+
+  - id: "SCN-007"
+    title: "Limb Ischemia - Recognition and Distal Perfusion Catheter"
+    difficulty: advanced
+    category: optional
+    ecmo_mode: VA
+    duration_minutes: 25
+    elso_reference: "ELSO Complications - Limb Ischemia"
+
+    learning_objectives:
+      - "Recognize early signs of limb ischemia in VA ECMO"
+      - "Perform bedside limb perfusion assessment"
+      - "Place distal perfusion catheter emergently"
+      - "Monitor for compartment syndrome"
+      - "Make decisions regarding fasciotomy"
+
+    clinical_context:
+      patient_profile:
+        ecmo_mode: "VA femoral"
+        ecmo_day: 1
+        cannulation_site: "Right femoral artery (17 Fr), right femoral vein (21 Fr)"
+        distal_perfusion_catheter: "Not placed at cannulation"
+        patient_characteristics:
+          age: 72
+          peripheral_vascular_disease: true
+          diabetes: true
+          bmi: 32
+
+    initial_state:
+      right_leg_exam_baseline:
+        pulses_pedal: "Doppler signals present"
+        temperature: "Warm"
+        capillary_refill: "< 3 sec"
+        motor: "Cannot assess (sedated)"
+        sensory: "Cannot assess (sedated)"
+        color: "Pink"
+      current_time: "12 hours post-cannulation"
+
+    decision_points:
+      - id: "DP-007-01"
+        timestamp_min: 0
+        question: "Nurse reports right leg appears pale and cool. Examination?"
+        current_exam:
+          color: "Pale, mottled"
+          temperature: "Cool to touch"
+          pedal_pulses: "Absent"
+          capillary_refill: "> 5 sec"
+        options:
+          - value: "acute_limb_ischemia_urgent_intervention"
+            correct: true
+            feedback: "Correct. Signs of acute limb ischemia. Requires immediate intervention."
+          - value: "normal_vasoconstriction_in_shock"
+            correct: false
+            feedback: "Incorrect. This is pathological, not physiological vasoconstriction."
+          - value: "monitor_for_now"
+            correct: false
+            feedback: "Dangerous delay. Limb ischemia requires urgent action to prevent loss."
+        critical: true
+        scoring_weight: 25
+
+      - id: "DP-007-02"
+        timestamp_min: 3
+        question: "Immediate bedside diagnostic?"
+        options:
+          - value: "near_infrared_spectroscopy_leg"
+            correct: false
+            feedback: "Helpful but not immediately available. Need rapid bedside assessment."
+          - value: "doppler_ultrasound_distal_perfusion"
+            correct: true
+            feedback: "Correct. Bedside Doppler can rapidly assess distal arterial flow."
+          - value: "ct_angiography_leg"
+            correct: false
+            feedback: "Excessive delay. Need bedside intervention, not imaging."
+        scoring_weight: 15
+
+      - id: "DP-007-03"
+        timestamp_min: 5
+        question: "Doppler confirms absent distal arterial flow. Intervention?"
+        options:
+          - value: "emergent_distal_perfusion_catheter"
+            correct: true
+            feedback: "Correct. Immediate distal perfusion catheter placement indicated."
+          - value: "increase_ecmo_flow"
+            correct: false
+            feedback: "Incorrect. Won't fix obstructed distal arterial flow."
+          - value: "heparin_bolus"
+            correct: false
+            feedback: "Insufficient. Need mechanical reperfusion, not just anticoagulation."
+        critical: true
+        scoring_weight: 25
+
+      - id: "DP-007-04"
+        timestamp_min: 12
+        question: "Distal perfusion catheter placed (6 Fr in superficial femoral artery). Doppler now shows flow. Next step?"
+        options:
+          - value: "serial_exams_q1h_monitor_compartment_syndrome"
+            correct: true
+            feedback: "Correct. Close monitoring for reperfusion injury and compartment syndrome."
+          - value: "no_further_action_needed"
+            correct: false
+            feedback: "Incorrect. Need continued monitoring for complications."
+          - value: "prophylactic_fasciotomy_now"
+            correct: false
+            feedback: "Premature. Fasciotomy only if compartment syndrome develops."
+        scoring_weight: 15
+
+      - id: "DP-007-05"
+        timestamp_min: 18
+        question: "6 hours later: Right leg tense, firm. Measured compartment pressure 45 mmHg. MAP 75. Action?"
+        compartment_pressure_mmhg: 45
+        map_mmhg: 75
+        delta_pressure: 30
+        options:
+          - value: "emergent_fasciotomy"
+            correct: true
+            feedback: "Correct. Delta pressure (MAP - compartment) = 30 mmHg. Fasciotomy indicated."
+          - value: "elevate_leg_ice_observe"
+            correct: false
+            feedback: "Insufficient. Compartment syndrome requires surgical decompression."
+          - value: "increase_map_with_vasopressors"
+            correct: false
+            feedback: "Delay. Fasciotomy is needed. Increasing MAP alone is inadequate."
+        critical: true
+        scoring_weight: 20
+
+    success_criteria:
+      mandatory:
+        - "Limb ischemia recognized within 5 minutes"
+        - "Distal perfusion catheter placed emergently"
+        - "Compartment syndrome monitoring implemented"
+        - "Fasciotomy performed when indicated"
+        - "Vascular surgery consulted appropriately"
+
+      time_based:
+        recognition_to_intervention: "< 15 minutes"
+
+      performance_metrics:
+        recognition_time_min: "< 5"
+        intervention_time_min: "< 15"
+        limb_salvage: true
+
+    complications:
+      - type: "compartment_syndrome"
+        trigger: "Delayed recognition or treatment of ischemia"
+        manifestation: "Tense compartments, elevated pressures, rhabdomyolysis"
+        required_action: "Emergent fasciotomy"
+
+      - type: "limb_loss"
+        trigger: "Prolonged ischemia > 6 hours without perfusion"
+        manifestation: "Irreversible muscle necrosis"
+        required_action: "Amputation consideration, damage control"
+
+    assessment_rubric:
+      ischemia_recognition: 30
+      bedside_assessment: 20
+      procedural_skill: 25
+      complication_monitoring: 15
+      decision_making: 10
+
+    debriefing_points:
+      - "Discuss risk factors for limb ischemia in VA ECMO"
+      - "Review indications for prophylactic distal perfusion catheter"
+      - "Emphasize serial limb examinations on VA ECMO"
+      - "Review compartment syndrome diagnosis and management"
+      - "Discuss limb perfusion monitoring modalities (NIRS, Doppler)"
+
+  # Additional scenarios 8-10 would follow similar structure for:
+  # SCN-008: Hemorrhage Management - Cannula Site Bleeding Control
+  # SCN-009: Multi-organ Support - ECMO + CRRT Integration
+  # SCN-010: Pediatric ECMO - Size-specific Considerations
+
+# ========== SCENARIO DIFFICULTY PROGRESSION ==========
+
+difficulty_progression:
+  beginner:
+    - SCN-001
+    - SCN-002
+  intermediate:
+    - SCN-003
+    - SCN-004
+    - SCN-005
+  advanced:
+    - SCN-006
+    - SCN-007
+    - SCN-008
+    - SCN-009
+    - SCN-010
+
+# ========== RECOMMENDED TRAINING PATHWAYS ==========
+
+training_pathways:
+  standard_4hour_session:
+    - SCN-001  # VA cannulation
+    - SCN-002  # VV cannulation
+    - SCN-003  # Circuit emergency
+    - SCN-004  # NIRS optimization
+
+  extended_8hour_session:
+    - SCN-001
+    - SCN-002
+    - SCN-003
+    - SCN-004
+    - SCN-005
+    - SCN-006
+
+  physician_focused:
+    - SCN-001
+    - SCN-002
+    - SCN-004
+    - SCN-006
+    - SCN-007
+
+  perfusionist_focused:
+    - SCN-003
+    - SCN-005
+    - SCN-009
+
+  nurse_focused:
+    - SCN-003
+    - SCN-004
+    - SCN-005
+    - SCN-007

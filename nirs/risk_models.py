@@ -1,507 +1,501 @@
 """
 NIRS + EHR Risk Models for ECMO Outcomes
-Taiwan ECMO CDSS - Near-infrared spectroscopy integrated risk prediction
-
-Separate models for VA-ECMO (cardiac) and VV-ECMO (respiratory) patients
-with model calibration and explainable AI features
+Supports VA/VV separation, class weighting, calibration, and explainability.
 """
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+from typing import Dict, Tuple, Optional, List, Any
+from dataclasses import dataclass
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold
-from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.calibration import CalibratedClassifierCV, calibration_curve
-from sklearn.metrics import roc_auc_score, brier_score_loss, roc_curve, precision_recall_curve
-import matplotlib.pyplot as plt
-import seaborn as sns
-import shap
-import joblib
-import logging
-from typing import Dict, Tuple, List, Optional
+from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import (
+    roc_auc_score, average_precision_score, brier_score_loss,
+    roc_curve, precision_recall_curve
+)
+from sklearn.utils.class_weight import compute_class_weight
 import warnings
-warnings.filterwarnings('ignore')
 
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
-class NIRSECMORiskModel:
+@dataclass
+class ModelConfig:
+    """Configuration for risk model training."""
+    ecmo_mode: str  # 'VA' or 'VV'
+    target: str = 'survival_to_discharge'
+    handle_imbalance: bool = True
+    calibration_method: str = 'isotonic'  # 'isotonic' or 'sigmoid' (Platt)
+    n_cv_folds: int = 5
+    random_state: int = 42
+
+    # NIRS features
+    nirs_features: List[str] = None
+    # EHR features
+    ehr_features: List[str] = None
+
+    def __post_init__(self):
+        if self.nirs_features is None:
+            self.nirs_features = [
+                'hbo_mean', 'hbo_std', 'hbo_slope',
+                'hbt_mean', 'hbt_std', 'hbt_slope',
+            ]
+        if self.ehr_features is None:
+            self.ehr_features = [
+                'age', 'bmi', 'apache_ii',
+                'lactate_mmol_l', 'hemoglobin_g_dl', 'platelets_10e9_l',
+                'map_mmHg', 'spo2_pct', 'abg_pao2_mmHg', 'abg_paco2_mmHg',
+                'pump_speed_rpm', 'flow_l_min', 'sweep_gas_l_min', 'fio2_ecmo',
+            ]
+
+
+class ECMORiskModel:
     """
-    NIRS-enhanced ECMO risk prediction model
-    Separate models for VA-ECMO and VV-ECMO with calibration
+    Explainable risk model for ECMO outcomes with VA/VV separation.
+
+    Features:
+    - Separate models for VA and VV ECMO modes
+    - Class weighting for imbalanced datasets
+    - Calibration (isotonic or Platt scaling)
+    - APACHE-stratified performance metrics
+    - Built-in explainability (feature importance)
     """
-    
-    def __init__(self, ecmo_type: str = 'VA'):
-        """
-        Initialize risk model
-        
-        Args:
-            ecmo_type: 'VA' for veno-arterial or 'VV' for veno-venous
-        """
-        self.ecmo_type = ecmo_type
+
+    def __init__(self, config: ModelConfig):
+        self.config = config
         self.model = None
         self.calibrated_model = None
-        self.scaler = StandardScaler()
         self.feature_names = None
-        self.shap_explainer = None
-        
-        # Risk model features specific to ECMO type
-        self.va_features = [
-            'age_years', 'weight_kg', 'bmi',
-            'pre_ecmo_lactate', 'pre_ecmo_ph', 'pre_ecmo_pco2', 'pre_ecmo_po2',
-            'cardiac_arrest', 'cpr_duration_min', 'inotrope_score',
-            'cerebral_so2_baseline', 'renal_so2_baseline', 'somatic_so2_baseline',
-            'cerebral_so2_min_24h', 'renal_so2_min_24h', 'somatic_so2_min_24h',
-            'nirs_trend_cerebral', 'nirs_trend_renal', 'nirs_variability',
-            'creatinine_pre', 'bilirubin_pre', 'platelet_count_pre',
-            'lvef_pre_ecmo', 'mitral_regurg_severity', 'aortic_regurg_severity'
-        ]
-        
-        self.vv_features = [
-            'age_years', 'weight_kg', 'bmi', 
-            'pre_ecmo_ph', 'pre_ecmo_pco2', 'pre_ecmo_po2', 'pre_ecmo_fio2',
-            'murray_score', 'peep_level', 'plateau_pressure',
-            'prone_positioning', 'neuromuscular_blockade',
-            'cerebral_so2_baseline', 'renal_so2_baseline', 'somatic_so2_baseline',
-            'cerebral_so2_min_24h', 'renal_so2_min_24h', 'somatic_so2_min_24h',
-            'nirs_trend_cerebral', 'nirs_trend_renal', 'nirs_variability',
-            'immunocompromised', 'chronic_lung_disease', 'pneumonia_type',
-            'resp_compliance', 'driving_pressure', 'oxygenation_index'
-        ]
-        
-        self.features = self.va_features if ecmo_type == 'VA' else self.vv_features
-        logger.info(f"Initialized {ecmo_type}-ECMO risk model with {len(self.features)} features")
-    
-    def prepare_nirs_features(self, data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Calculate NIRS-derived features
-        
-        Args:
-            data: Raw NIRS and clinical data
-            
-        Returns:
-            DataFrame with calculated NIRS features
-        """
-        logger.info("Calculating NIRS-derived features")
-        
-        nirs_data = data.copy()
-        
-        # NIRS trend calculations (slope over first 24 hours)
-        for site in ['cerebral', 'renal', 'somatic']:
-            col = f'{site}_so2'
-            if col in nirs_data.columns:
-                # Mock trend calculation - in practice, this would use time series data
-                baseline = nirs_data[f'{site}_so2_baseline']
-                min_24h = nirs_data[f'{site}_so2_min_24h']
-                nirs_data[f'nirs_trend_{site}'] = min_24h - baseline
-        
-        # NIRS variability (coefficient of variation)
-        cerebral_baseline = nirs_data.get('cerebral_so2_baseline', 70)
-        cerebral_min = nirs_data.get('cerebral_so2_min_24h', 60)
-        nirs_data['nirs_variability'] = np.abs(cerebral_baseline - cerebral_min) / cerebral_baseline
-        
-        # NIRS adequacy score (composite)
-        nirs_data['nirs_adequacy_score'] = (
-            (nirs_data.get('cerebral_so2_baseline', 70) * 0.5) +
-            (nirs_data.get('renal_so2_baseline', 75) * 0.3) +  
-            (nirs_data.get('somatic_so2_baseline', 70) * 0.2)
-        ) / 100
-        
-        return nirs_data
-    
-    def calculate_risk_scores(self, data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Calculate existing ECMO risk scores for comparison
-        
-        Args:
-            data: Clinical data
-            
-        Returns:
-            DataFrame with risk scores
-        """
-        result_data = data.copy()
-        
-        if self.ecmo_type == 'VA':
-            # SAVE-II Score (simplified)
-            save_score = pd.Series(0, index=data.index)
-            
-            # Age component
-            if 'age_years' in data.columns:
-                save_score += np.where(data['age_years'] > 38, -2, 0)
-                save_score += np.where(data['age_years'] > 53, -2, 0)
-            
-            # Weight component  
-            if 'weight_kg' in data.columns:
-                save_score += np.where(data['weight_kg'] < 65, -3, 0)
-            
-            # Cardiac arrest
-            if 'cardiac_arrest' in data.columns:
-                save_score += np.where(data['cardiac_arrest'] == True, -2, 0)
-            
-            # Pre-ECMO bicarbonate (if available)
-            if 'bicarbonate_pre' in data.columns:
-                save_score += np.where(data['bicarbonate_pre'] < 15, -3, 0)
-            
-            result_data['save_ii_score'] = save_score
-            
-        elif self.ecmo_type == 'VV':
-            # RESP Score (simplified)
-            resp_score = pd.Series(0, index=data.index)
-            
-            # Age component
-            if 'age_years' in data.columns:
-                resp_score += np.where(data['age_years'].between(18, 49), 0, -2)
-                resp_score += np.where(data['age_years'] >= 60, -3, 0)
-            
-            # Immunocompromised status
-            if 'immunocompromised' in data.columns:
-                resp_score += np.where(data['immunocompromised'] == True, -2, 0)
-            
-            # Mechanical ventilation duration
-            if 'vent_duration_pre_ecmo' in data.columns:
-                resp_score += np.where(data['vent_duration_pre_ecmo'] > 7, -1, 0)
-            
-            result_data['resp_score'] = resp_score
-        
-        return result_data
-    
-    def train_model(self, X: pd.DataFrame, y: pd.Series, 
-                   validation_split: float = 0.2) -> Dict:
-        """
-        Train the NIRS-enhanced ECMO risk model
-        
-        Args:
-            X: Feature matrix
-            y: Target variable (survival outcome)
-            validation_split: Fraction for validation set
-            
-        Returns:
-            Dictionary with training metrics
-        """
-        logger.info(f"Training {self.ecmo_type}-ECMO risk model on {len(X)} patients")
-        
-        # Prepare NIRS features
-        X_enhanced = self.prepare_nirs_features(X)
-        X_enhanced = self.calculate_risk_scores(X_enhanced)
-        
-        # Select features available in the data
-        available_features = [f for f in self.features if f in X_enhanced.columns]
-        self.feature_names = available_features
-        logger.info(f"Using {len(available_features)} available features")
-        
-        X_model = X_enhanced[available_features]
-        
-        # Handle missing values
-        X_model = X_model.fillna(X_model.median())
-        
-        # Split data
-        X_train, X_val, y_train, y_val = train_test_split(
-            X_model, y, test_size=validation_split, 
-            random_state=42, stratify=y
-        )
-        
-        # Scale features
-        X_train_scaled = self.scaler.fit_transform(X_train)
-        X_val_scaled = self.scaler.transform(X_val)
-        
-        # Train ensemble model
-        models = {
-            'logistic': LogisticRegression(random_state=42, max_iter=1000),
-            'rf': RandomForestClassifier(n_estimators=100, random_state=42),
-            'gbm': GradientBoostingClassifier(random_state=42)
-        }
-        
-        model_scores = {}
-        for name, model in models.items():
-            if name == 'logistic':
-                model.fit(X_train_scaled, y_train)
-                score = roc_auc_score(y_val, model.predict_proba(X_val_scaled)[:, 1])
-            else:
-                model.fit(X_train, y_train)
-                score = roc_auc_score(y_val, model.predict_proba(X_val)[:, 1])
-            
-            model_scores[name] = score
-            logger.info(f"{name} model AUC: {score:.3f}")
-        
-        # Select best model
-        best_model_name = max(model_scores, key=model_scores.get)
-        self.model = models[best_model_name]
-        logger.info(f"Selected {best_model_name} as best model (AUC: {model_scores[best_model_name]:.3f})")
-        
-        # Calibrate the model
-        if best_model_name == 'logistic':
-            self.calibrated_model = CalibratedClassifierCV(
-                self.model, method='isotonic', cv=3
-            )
-            self.calibrated_model.fit(X_train_scaled, y_train)
-            val_probs = self.calibrated_model.predict_proba(X_val_scaled)[:, 1]
-        else:
-            self.calibrated_model = CalibratedClassifierCV(
-                self.model, method='isotonic', cv=3  
-            )
-            self.calibrated_model.fit(X_train, y_train)
-            val_probs = self.calibrated_model.predict_proba(X_val)[:, 1]
-        
-        # Calculate metrics
-        auc_score = roc_auc_score(y_val, val_probs)
-        brier_score = brier_score_loss(y_val, val_probs)
-        
-        # Setup SHAP explainer
-        try:
-            if best_model_name == 'logistic':
-                self.shap_explainer = shap.LinearExplainer(
-                    self.calibrated_model.calibrated_classifiers_[0].base_estimator,
-                    X_train_scaled
-                )
-            else:
-                # For tree-based models
-                self.shap_explainer = shap.TreeExplainer(self.model)
-        except Exception as e:
-            logger.warning(f"Could not initialize SHAP explainer: {e}")
-        
-        metrics = {
-            'model_type': best_model_name,
-            'auc_score': auc_score,
-            'brier_score': brier_score,
-            'n_features': len(available_features),
-            'n_train': len(X_train),
-            'n_val': len(X_val)
-        }
-        
-        logger.info(f"Model training complete. AUC: {auc_score:.3f}, Brier: {brier_score:.3f}")
-        
-        return metrics
-    
-    def predict_risk(self, X: pd.DataFrame) -> np.ndarray:
-        """
-        Predict survival risk for new patients
-        
-        Args:
-            X: Feature matrix for new patients
-            
-        Returns:
-            Array of predicted survival probabilities
-        """
-        if self.calibrated_model is None:
-            raise ValueError("Model not trained. Call train_model() first.")
-        
-        # Prepare features
-        X_enhanced = self.prepare_nirs_features(X)
-        X_enhanced = self.calculate_risk_scores(X_enhanced)
-        X_model = X_enhanced[self.feature_names].fillna(X_enhanced.median())
-        
-        # Scale if using logistic regression
-        if hasattr(self.calibrated_model.calibrated_classifiers_[0].base_estimator, 'coef_'):
-            X_model = self.scaler.transform(X_model)
-        
-        return self.calibrated_model.predict_proba(X_model)[:, 1]
-    
-    def explain_prediction(self, X: pd.DataFrame, patient_idx: int = 0) -> Dict:
-        """
-        Explain individual patient risk prediction using SHAP
-        
-        Args:
-            X: Feature matrix
-            patient_idx: Index of patient to explain
-            
-        Returns:
-            Dictionary with explanation data
-        """
-        if self.shap_explainer is None:
-            logger.warning("SHAP explainer not available")
-            return {}
-        
-        # Prepare features
-        X_enhanced = self.prepare_nirs_features(X)
-        X_model = X_enhanced[self.feature_names].fillna(X_enhanced.median())
-        
-        # Scale if needed
-        if hasattr(self.calibrated_model.calibrated_classifiers_[0].base_estimator, 'coef_'):
-            X_model = self.scaler.transform(X_model)
-        
-        # Calculate SHAP values
-        try:
-            shap_values = self.shap_explainer.shap_values(X_model[patient_idx:patient_idx+1])
-            
-            if isinstance(shap_values, list):  # Binary classification
-                shap_values = shap_values[1]
-            
-            explanation = {
-                'shap_values': shap_values[0],
-                'feature_names': self.feature_names,
-                'feature_values': X_model.iloc[patient_idx].values,
-                'base_value': self.shap_explainer.expected_value,
-                'predicted_risk': self.predict_risk(X.iloc[patient_idx:patient_idx+1])[0]
+        self.class_weights = None
+        self.training_metrics = {}
+
+    def _get_base_model(self) -> Any:
+        """Get base classifier with class weights if configured."""
+        if self.config.handle_imbalance and self.class_weights is not None and len(self.class_weights) == 2:
+            # Use computed class weights (only if both classes present)
+            class_weight_dict = {
+                0: self.class_weights[0],
+                1: self.class_weights[1]
             }
-            
-            return explanation
-            
-        except Exception as e:
-            logger.error(f"Error generating explanation: {e}")
-            return {}
-    
-    def plot_calibration(self, X_val: pd.DataFrame, y_val: pd.Series):
-        """
-        Plot model calibration curve
-        
-        Args:
-            X_val: Validation features
-            y_val: Validation outcomes
-        """
-        y_prob = self.predict_risk(X_val)
-        
-        plt.figure(figsize=(10, 6))
-        
-        # Calibration plot
-        plt.subplot(1, 2, 1)
-        fraction_of_positives, mean_predicted_value = calibration_curve(
-            y_val, y_prob, n_bins=10, normalize=False
+        else:
+            class_weight_dict = None
+
+        # Default to GradientBoosting for better calibration
+        model = GradientBoostingClassifier(
+            n_estimators=100,
+            max_depth=3,
+            learning_rate=0.1,
+            min_samples_split=20,
+            min_samples_leaf=10,
+            subsample=0.8,
+            random_state=self.config.random_state
         )
-        
-        plt.plot(mean_predicted_value, fraction_of_positives, "s-", 
-                label=f"{self.ecmo_type}-ECMO Model")
-        plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
-        plt.xlabel("Mean Predicted Probability")
-        plt.ylabel("Fraction of Positives")
-        plt.title(f"{self.ecmo_type}-ECMO Model Calibration")
-        plt.legend()
-        
-        # ROC curve
-        plt.subplot(1, 2, 2)
-        fpr, tpr, _ = roc_curve(y_val, y_prob)
-        auc = roc_auc_score(y_val, y_prob)
-        
-        plt.plot(fpr, tpr, label=f"ROC curve (AUC = {auc:.3f})")
-        plt.plot([0, 1], [0, 1], "k--", label="Random classifier")
-        plt.xlabel("False Positive Rate")
-        plt.ylabel("True Positive Rate")
-        plt.title(f"{self.ecmo_type}-ECMO Model ROC")
-        plt.legend()
-        
-        plt.tight_layout()
-        plt.savefig(f'{self.ecmo_type.lower()}_ecmo_calibration.png', dpi=300, bbox_inches='tight')
-        plt.show()
-    
-    def save_model(self, filepath: str):
-        """Save trained model"""
-        model_data = {
-            'ecmo_type': self.ecmo_type,
-            'model': self.calibrated_model,
-            'scaler': self.scaler,
-            'feature_names': self.feature_names,
-            'shap_explainer': self.shap_explainer
+        return model
+
+    def _compute_class_weights(self, y: np.ndarray) -> np.ndarray:
+        """Compute balanced class weights for imbalanced data."""
+        classes = np.unique(y)
+        weights = compute_class_weight(
+            class_weight='balanced',
+            classes=classes,
+            y=y
+        )
+        return weights
+
+    def prepare_features(self, df: pd.DataFrame) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+        """
+        Prepare feature matrix from NIRS + EHR data.
+
+        Args:
+            df: DataFrame with NIRS and EHR features
+
+        Returns:
+            X: Feature matrix
+            y: Target labels
+            feature_names: List of feature names
+        """
+        # Filter by ECMO mode
+        df_mode = df[df['mode'] == self.config.ecmo_mode].copy()
+
+        if len(df_mode) == 0:
+            raise ValueError(f"No data found for ECMO mode: {self.config.ecmo_mode}")
+
+        # Combine NIRS and EHR features
+        all_features = self.config.nirs_features + self.config.ehr_features
+
+        # Select available features
+        available_features = [f for f in all_features if f in df_mode.columns]
+        if len(available_features) == 0:
+            raise ValueError(f"No features found in data. Expected: {all_features}")
+
+        if len(available_features) < len(all_features):
+            missing = set(all_features) - set(available_features)
+            warnings.warn(f"Missing features: {missing}")
+
+        # Extract features and target
+        X = df_mode[available_features].values
+        y = df_mode[self.config.target].astype(int).values
+
+        # Handle missing values (simple imputation with median)
+        X_df = pd.DataFrame(X, columns=available_features)
+        X_df = X_df.fillna(X_df.median())
+        X = X_df.values
+
+        return X, y, available_features
+
+    def fit(self, X: np.ndarray, y: np.ndarray, feature_names: List[str]) -> 'ECMORiskModel':
+        """
+        Train risk model with calibration.
+
+        Args:
+            X: Feature matrix (n_samples, n_features)
+            y: Target labels (n_samples,)
+            feature_names: List of feature names
+
+        Returns:
+            self
+        """
+        self.feature_names = feature_names
+
+        # Compute class weights for imbalanced data
+        if self.config.handle_imbalance:
+            self.class_weights = self._compute_class_weights(y)
+            print(f"\n{self.config.ecmo_mode} ECMO - Class distribution:")
+            print(f"  Class 0 (died): {np.sum(y == 0)} ({np.mean(y == 0)*100:.1f}%)")
+            print(f"  Class 1 (survived): {np.sum(y == 1)} ({np.mean(y == 1)*100:.1f}%)")
+            if len(self.class_weights) == 2:
+                print(f"  Class weights: 0={self.class_weights[0]:.3f}, 1={self.class_weights[1]:.3f}")
+            else:
+                print(f"  Warning: Only one class present. Class weights: {self.class_weights}")
+
+        # Train base model
+        self.model = self._get_base_model()
+
+        # For gradient boosting, use sample_weight instead of class_weight
+        if isinstance(self.model, GradientBoostingClassifier) and self.class_weights is not None and len(self.class_weights) == 2:
+            sample_weights = np.ones(len(y))
+            sample_weights[y == 0] = self.class_weights[0]
+            sample_weights[y == 1] = self.class_weights[1]
+            self.model.fit(X, y, sample_weight=sample_weights)
+        else:
+            self.model.fit(X, y)
+
+        # Apply calibration
+        print(f"\nApplying {self.config.calibration_method} calibration...")
+        self.calibrated_model = CalibratedClassifierCV(
+            self.model,
+            method=self.config.calibration_method,
+            cv='prefit'  # Use pre-fitted model
+        )
+
+        # For calibration, we need to use a hold-out set or CV
+        # Using stratified CV for calibration
+        cv = StratifiedKFold(n_splits=min(self.config.n_cv_folds, len(y) // 20))
+
+        # Re-train for proper calibration
+        base_model = self._get_base_model()
+        if isinstance(base_model, GradientBoostingClassifier) and self.class_weights is not None and len(self.class_weights) == 2:
+            base_model.fit(X, y, sample_weight=sample_weights)
+        else:
+            base_model.fit(X, y)
+
+        self.calibrated_model = CalibratedClassifierCV(
+            base_model,
+            method=self.config.calibration_method,
+            cv=cv
+        )
+        self.calibrated_model.fit(X, y)
+
+        return self
+
+    def predict_proba(self, X: np.ndarray, calibrated: bool = True) -> np.ndarray:
+        """
+        Predict probabilities.
+
+        Args:
+            X: Feature matrix
+            calibrated: Use calibrated model if True
+
+        Returns:
+            Probability predictions (n_samples, 2)
+        """
+        model = self.calibrated_model if calibrated else self.model
+        if model is None:
+            raise ValueError("Model not trained. Call fit() first.")
+        return model.predict_proba(X)
+
+    def predict(self, X: np.ndarray, calibrated: bool = True, threshold: float = 0.5) -> np.ndarray:
+        """
+        Predict class labels.
+
+        Args:
+            X: Feature matrix
+            calibrated: Use calibrated model if True
+            threshold: Decision threshold
+
+        Returns:
+            Predicted labels (n_samples,)
+        """
+        proba = self.predict_proba(X, calibrated=calibrated)
+        return (proba[:, 1] >= threshold).astype(int)
+
+    def get_feature_importance(self) -> pd.DataFrame:
+        """
+        Get feature importance scores.
+
+        Returns:
+            DataFrame with features and importance scores
+        """
+        if self.model is None:
+            raise ValueError("Model not trained. Call fit() first.")
+
+        if hasattr(self.model, 'feature_importances_'):
+            importance = self.model.feature_importances_
+        else:
+            # For linear models, use coefficient magnitude
+            importance = np.abs(self.model.coef_[0])
+
+        df = pd.DataFrame({
+            'feature': self.feature_names,
+            'importance': importance
+        }).sort_values('importance', ascending=False)
+
+        return df
+
+    def explain_prediction(self, X: np.ndarray, index: int = 0) -> Dict[str, Any]:
+        """
+        Explain individual prediction.
+
+        Args:
+            X: Feature matrix
+            index: Sample index to explain
+
+        Returns:
+            Dictionary with prediction explanation
+        """
+        proba = self.predict_proba(X[[index]], calibrated=True)[0]
+        features = {
+            name: float(X[index, i])
+            for i, name in enumerate(self.feature_names)
         }
-        joblib.dump(model_data, filepath)
-        logger.info(f"Model saved to {filepath}")
-    
-    def load_model(self, filepath: str):
-        """Load trained model"""
-        model_data = joblib.load(filepath)
-        self.ecmo_type = model_data['ecmo_type']
-        self.calibrated_model = model_data['model']
-        self.scaler = model_data['scaler']
-        self.feature_names = model_data['feature_names']
-        self.shap_explainer = model_data['shap_explainer']
-        logger.info(f"Model loaded from {filepath}")
+
+        importance = self.get_feature_importance()
+
+        return {
+            'prediction': {
+                'probability_death': float(proba[0]),
+                'probability_survival': float(proba[1]),
+                'predicted_class': int(proba[1] >= 0.5)
+            },
+            'features': features,
+            'top_features': importance.head(10).to_dict('records')
+        }
 
 
-def generate_demo_data(n_patients: int = 1000, ecmo_type: str = 'VA') -> pd.DataFrame:
+class APACHEStratifiedEvaluator:
     """
-    Generate demo ECMO patient data for model development
-    
+    Evaluate model performance stratified by APACHE-II scores.
+    """
+
+    def __init__(self, apache_bins: Optional[List[float]] = None):
+        """
+        Args:
+            apache_bins: Bin edges for APACHE-II stratification
+                        Default: [0, 15, 25, 100] for low/medium/high
+        """
+        if apache_bins is None:
+            apache_bins = [0, 15, 25, 100]
+        self.apache_bins = apache_bins
+
+    def evaluate(
+        self,
+        y_true: np.ndarray,
+        y_pred_proba: np.ndarray,
+        apache_scores: np.ndarray,
+        label: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Evaluate model with APACHE-II stratification.
+
+        Args:
+            y_true: True labels
+            y_pred_proba: Predicted probabilities (n_samples, 2)
+            apache_scores: APACHE-II scores
+            label: Label for the evaluation (e.g., 'VA-ECMO')
+
+        Returns:
+            Dictionary with overall and stratified metrics
+        """
+        results = {'label': label}
+
+        # Overall metrics
+        y_pred = y_pred_proba[:, 1]
+        results['overall'] = self._compute_metrics(y_true, y_pred)
+
+        # Stratified metrics
+        apache_strata = pd.cut(
+            apache_scores,
+            bins=self.apache_bins,
+            labels=['low', 'medium', 'high'][:len(self.apache_bins)-1],
+            include_lowest=True
+        )
+
+        results['stratified'] = {}
+        for stratum in apache_strata.unique():
+            if pd.isna(stratum):
+                continue
+            mask = (apache_strata == stratum)
+            if mask.sum() < 10:  # Skip small groups
+                continue
+
+            results['stratified'][str(stratum)] = {
+                'n': int(mask.sum()),
+                **self._compute_metrics(y_true[mask], y_pred[mask])
+            }
+
+        # Calibration metrics
+        results['calibration'] = self._compute_calibration(y_true, y_pred)
+
+        return results
+
+    def _compute_metrics(self, y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
+        """Compute classification metrics."""
+        if len(np.unique(y_true)) < 2:
+            return {
+                'auroc': np.nan,
+                'auprc': np.nan,
+                'brier_score': np.nan,
+            }
+
+        return {
+            'auroc': float(roc_auc_score(y_true, y_pred)),
+            'auprc': float(average_precision_score(y_true, y_pred)),
+            'brier_score': float(brier_score_loss(y_true, y_pred)),
+        }
+
+    def _compute_calibration(
+        self,
+        y_true: np.ndarray,
+        y_pred: np.ndarray,
+        n_bins: int = 10
+    ) -> Dict[str, Any]:
+        """Compute calibration metrics."""
+        try:
+            prob_true, prob_pred = calibration_curve(
+                y_true, y_pred, n_bins=n_bins, strategy='quantile'
+            )
+
+            # Expected Calibration Error (ECE)
+            bin_counts = np.histogram(y_pred, bins=n_bins, range=(0, 1))[0]
+            bin_weights = bin_counts / len(y_pred)
+            ece = np.sum(bin_weights * np.abs(prob_true - prob_pred))
+
+            return {
+                'ece': float(ece),
+                'prob_true': prob_true.tolist(),
+                'prob_pred': prob_pred.tolist(),
+            }
+        except Exception as e:
+            warnings.warn(f"Calibration computation failed: {e}")
+            return {'ece': np.nan}
+
+    def print_report(self, results: Dict[str, Any]) -> None:
+        """Print formatted evaluation report."""
+        print(f"\n{'='*60}")
+        print(f"Performance Report: {results['label']}")
+        print(f"{'='*60}")
+
+        # Overall metrics
+        print("\nOverall Performance:")
+        for metric, value in results['overall'].items():
+            print(f"  {metric:15s}: {value:.4f}")
+
+        # Calibration
+        if 'ece' in results['calibration']:
+            print(f"  {'ECE':15s}: {results['calibration']['ece']:.4f}")
+
+        # Stratified metrics
+        if results['stratified']:
+            print("\nAPACHE-II Stratified Performance:")
+            for stratum, metrics in results['stratified'].items():
+                print(f"\n  {stratum.upper()} (n={metrics['n']}):")
+                for metric, value in metrics.items():
+                    if metric != 'n':
+                        print(f"    {metric:13s}: {value:.4f}")
+
+
+def train_va_vv_models(
+    df: pd.DataFrame,
+    target: str = 'survival_to_discharge',
+    apache_col: str = 'apache_ii'
+) -> Tuple[ECMORiskModel, ECMORiskModel, Dict[str, Any]]:
+    """
+    Train separate VA and VV ECMO risk models.
+
     Args:
-        n_patients: Number of patients to generate
-        ecmo_type: ECMO type ('VA' or 'VV')
-        
+        df: DataFrame with ECMO episodes
+        target: Target outcome variable
+        apache_col: Column name for APACHE-II scores
+
     Returns:
-        DataFrame with demo patient data
+        va_model: Trained VA-ECMO model
+        vv_model: Trained VV-ECMO model
+        results: Dictionary with evaluation results
     """
-    np.random.seed(42)
-    
-    data = {
-        'patient_id': [f'PT{i:04d}' for i in range(n_patients)],
-        'age_years': np.random.normal(55, 15, n_patients).clip(18, 85),
-        'weight_kg': np.random.normal(75, 15, n_patients).clip(40, 150),
-        'bmi': np.random.normal(25, 5, n_patients).clip(15, 45),
-    }
-    
-    # Add NIRS data
-    data.update({
-        'cerebral_so2_baseline': np.random.normal(70, 10, n_patients).clip(40, 90),
-        'renal_so2_baseline': np.random.normal(75, 8, n_patients).clip(50, 90),
-        'somatic_so2_baseline': np.random.normal(70, 8, n_patients).clip(45, 85),
-        'cerebral_so2_min_24h': np.random.normal(65, 12, n_patients).clip(30, 85),
-        'renal_so2_min_24h': np.random.normal(70, 10, n_patients).clip(40, 85),
-        'somatic_so2_min_24h': np.random.normal(65, 10, n_patients).clip(35, 80),
-    })
-    
-    # Add clinical variables based on ECMO type
-    if ecmo_type == 'VA':
-        data.update({
-            'cardiac_arrest': np.random.choice([True, False], n_patients, p=[0.4, 0.6]),
-            'cpr_duration_min': np.random.exponential(20, n_patients).clip(0, 120),
-            'pre_ecmo_lactate': np.random.exponential(3, n_patients).clip(0.5, 20),
-            'lvef_pre_ecmo': np.random.normal(30, 15, n_patients).clip(10, 60),
-        })
-    else:  # VV
-        data.update({
-            'murray_score': np.random.normal(3.0, 0.5, n_patients).clip(2.0, 4.0),
-            'peep_level': np.random.normal(12, 4, n_patients).clip(5, 25),
-            'immunocompromised': np.random.choice([True, False], n_patients, p=[0.3, 0.7]),
-            'prone_positioning': np.random.choice([True, False], n_patients, p=[0.6, 0.4]),
-        })
-    
-    # Common variables
-    data.update({
-        'pre_ecmo_ph': np.random.normal(7.25, 0.15, n_patients).clip(6.8, 7.6),
-        'pre_ecmo_pco2': np.random.normal(50, 15, n_patients).clip(20, 100),
-        'pre_ecmo_po2': np.random.normal(80, 25, n_patients).clip(30, 150),
-        'creatinine_pre': np.random.exponential(1.5, n_patients).clip(0.5, 8),
-        'platelet_count_pre': np.random.normal(200, 80, n_patients).clip(20, 500),
-    })
-    
-    df = pd.DataFrame(data)
-    
-    # Generate survival outcome (simplified risk model)
-    risk_factors = (
-        (df['age_years'] - 50) * 0.02 +  # Age effect
-        (df['cerebral_so2_baseline'] - 70) * -0.03 +  # NIRS effect
-        (df['pre_ecmo_lactate'] - 2) * 0.1 +  # Lactate effect
-        np.random.normal(0, 0.5, n_patients)  # Random variation
-    )
-    
-    survival_prob = 1 / (1 + np.exp(risk_factors))  # Logistic function
-    df['survived_to_discharge'] = np.random.binomial(1, survival_prob, n_patients)
-    
-    return df
+    print("="*60)
+    print("Training VA/VV Separated ECMO Risk Models")
+    print("="*60)
 
+    results = {}
+    models = {}
 
-if __name__ == "__main__":
-    # Demo usage
-    logger.info("NIRS-Enhanced ECMO Risk Models Demo")
-    
-    # Generate demo data for both VA and VV ECMO
-    va_data = generate_demo_data(500, 'VA')
-    vv_data = generate_demo_data(500, 'VV')
-    
-    # Train VA-ECMO model
-    va_model = NIRSECMORiskModel('VA')
-    X_va = va_data.drop(['patient_id', 'survived_to_discharge'], axis=1)
-    y_va = va_data['survived_to_discharge']
-    va_metrics = va_model.train_model(X_va, y_va)
-    logger.info(f"VA-ECMO model metrics: {va_metrics}")
-    
-    # Train VV-ECMO model  
-    vv_model = NIRSECMORiskModel('VV')
-    X_vv = vv_data.drop(['patient_id', 'survived_to_discharge'], axis=1)
-    y_vv = vv_data['survived_to_discharge']
-    vv_metrics = vv_model.train_model(X_vv, y_vv)
-    logger.info(f"VV-ECMO model metrics: {vv_metrics}")
-    
-    # Save models
-    va_model.save_model('va_ecmo_nirs_model.pkl')
-    vv_model.save_model('vv_ecmo_nirs_model.pkl')
-    
-    logger.info("NIRS-Enhanced ECMO Risk Models training complete")
+    for mode in ['VA', 'VV']:
+        print(f"\n\n{'*'*60}")
+        print(f"Training {mode}-ECMO Model")
+        print(f"{'*'*60}")
+
+        # Configure model
+        config = ModelConfig(
+            ecmo_mode=mode,
+            target=target,
+            handle_imbalance=True,
+            calibration_method='isotonic'
+        )
+
+        # Initialize model
+        model = ECMORiskModel(config)
+
+        try:
+            # Prepare features
+            X, y, feature_names = model.prepare_features(df)
+            print(f"\nData shape: {X.shape}")
+            print(f"Features: {len(feature_names)}")
+
+            # Train model
+            model.fit(X, y, feature_names)
+
+            # Evaluate
+            y_pred_proba = model.predict_proba(X, calibrated=True)
+            apache_scores = df[df['mode'] == mode][apache_col].values
+
+            evaluator = APACHEStratifiedEvaluator()
+            eval_results = evaluator.evaluate(
+                y, y_pred_proba, apache_scores, label=f'{mode}-ECMO'
+            )
+            evaluator.print_report(eval_results)
+
+            # Feature importance
+            print(f"\n\nTop 10 Most Important Features ({mode}-ECMO):")
+            importance_df = model.get_feature_importance()
+            print(importance_df.head(10).to_string(index=False))
+
+            models[mode] = model
+            results[mode] = eval_results
+
+        except Exception as e:
+            print(f"\nError training {mode} model: {e}")
+            warnings.warn(f"Failed to train {mode} model: {e}")
+            models[mode] = None
+            results[mode] = None
+
+    return models.get('VA'), models.get('VV'), results

@@ -1,199 +1,233 @@
-# TAIWAN-ECMO-CDSS-NEXT Data Dictionary
-# ELSO-aligned data elements for ECMO Clinical Decision Support System
+# ELSO-Aligned Data Dictionary for Taiwan ECMO CDSS
+# Based on ELSO Registry v5.x Data Definitions
+# Coding systems: ICD-10-CM, CPT, SNOMED CT
 
-version: "1.0"
-standard: "ELSO Registry v3.4"
-description: "Data dictionary for Taiwan ECMO CDSS aligned with ELSO standards"
+patient:
+  # Core Demographics (ELSO Section 1: Patient Demographics)
+  subject_id: {type: integer, elso_field: "patient.id", description: "Unique patient identifier"}
+  age: {type: number, elso_field: "patient.age_years", unit: "years", description: "Age at ECMO initiation"}
+  age_group: {type: string, enum: [neonate, pediatric, adult], elso_field: "patient.age_category", description: "ELSO age category"}
+  sex: {type: string, enum: [M, F, U], elso_field: "patient.sex", description: "Biological sex"}
+  race: {type: string, enum: [asian, white, black, other, unknown], elso_field: "patient.race", description: "Race per ELSO categories"}
+  ethnicity: {type: string, enum: [hispanic, non_hispanic, unknown], elso_field: "patient.ethnicity", description: "Ethnicity"}
+  weight_kg: {type: number, elso_field: "patient.weight_kg", unit: "kg", description: "Body weight"}
+  height_cm: {type: number, elso_field: "patient.height_cm", unit: "cm", description: "Height"}
+  bmi: {type: number, elso_field: "patient.bmi", unit: "kg/m²", description: "Body mass index"}
+  bsa_m2: {type: number, elso_field: "patient.bsa", unit: "m²", description: "Body surface area"}
 
-# Patient Demographics
-demographics:
-  patient_id:
-    type: string
-    description: "Unique patient identifier (anonymized)"
-    required: true
-    format: "PTXXXX"
-  
-  age_years:
-    type: integer
-    description: "Age in years at ECMO initiation"
-    range: [0, 120]
-    elso_code: "AGE"
-  
-  weight_kg:
-    type: float
-    description: "Patient weight in kilograms"
-    range: [0.5, 300.0]
-    elso_code: "WEIGHT"
-  
-  height_cm:
-    type: float
-    description: "Patient height in centimeters"
-    range: [30.0, 250.0]
-    elso_code: "HEIGHT"
-  
-  gender:
-    type: enum
-    description: "Patient gender"
-    values: ["M", "F", "U"]
-    elso_code: "SEX"
+pre_ecmo:
+  # Pre-ECMO Condition (ELSO Section 2: Pre-ECMO Data)
+  primary_diagnosis: {type: string, elso_field: "pre_ecmo.primary_diagnosis", code_ref: "etl/codes/ecmo_diagnoses.yaml", description: "Primary indication for ECMO"}
+  diagnosis_category: {type: string, enum: [cardiac, respiratory, ecpr, septic_shock, other], elso_field: "pre_ecmo.diagnosis_category", description: "ELSO diagnosis category"}
+  icd10_codes: {type: array, items: {type: string}, elso_field: "pre_ecmo.icd10_codes", description: "ICD-10-CM diagnosis codes"}
+  apache_ii: {type: number, elso_field: "pre_ecmo.apache_ii_score", range: [0, 71], description: "APACHE II severity score"}
+  sofa_score: {type: number, elso_field: "pre_ecmo.sofa_score", range: [0, 24], description: "Sequential Organ Failure Assessment score"}
+  pf_ratio: {type: number, elso_field: "pre_ecmo.pao2_fio2_ratio", unit: "mmHg", description: "PaO2/FiO2 ratio before ECMO"}
+  oxy_index: {type: number, elso_field: "pre_ecmo.oxygenation_index", description: "Oxygenation index (pediatric)"}
+  ph_pre_ecmo: {type: number, elso_field: "pre_ecmo.arterial_ph", range: [6.5, 8.0], description: "Arterial pH before ECMO"}
+  lactate_pre_ecmo: {type: number, elso_field: "pre_ecmo.lactate_mmol", unit: "mmol/L", description: "Lactate before ECMO"}
+  cardiac_arrest_pre_ecmo: {type: boolean, elso_field: "pre_ecmo.cardiac_arrest", description: "Cardiac arrest prior to ECMO"}
+  cpr_duration_min: {type: number, elso_field: "pre_ecmo.cpr_duration_minutes", unit: "minutes", description: "CPR duration if ECPR"}
+  mechanical_vent_hours: {type: number, elso_field: "pre_ecmo.mechanical_ventilation_hours", unit: "hours", description: "Hours on mechanical ventilation pre-ECMO"}
 
-# ECMO Configuration
-ecmo_config:
-  ecmo_type:
-    type: enum
-    description: "Type of ECMO support"
-    values: ["VA", "VV", "VAV"]
-    required: true
-    elso_code: "MODE"
-  
-  cannulation_type:
-    type: enum
-    description: "Cannulation approach"
-    values: ["peripheral", "central", "hybrid"]
-    elso_code: "CANNULATION"
-  
-  flow_lmin:
-    type: float
-    description: "ECMO flow rate in L/min"
-    range: [0.1, 10.0]
-    elso_code: "FLOW"
-  
-  sweep_gas_lmin:
-    type: float
-    description: "Sweep gas flow rate in L/min"
-    range: [0.0, 15.0]
-    elso_code: "SWEEP"
+ecmo_episode:
+  # ECMO Run Details (ELSO Section 3: ECMO Support)
+  ecmo_run_id: {type: string, elso_field: "ecmo.run_id", description: "Unique ECMO run identifier"}
+  mode: {type: string, enum: [VA, VV, VAV, VVA], elso_field: "ecmo.mode", description: "ECMO mode"}
+  indication: {type: string, elso_field: "ecmo.indication", code_ref: "etl/codes/ecmo_diagnoses.yaml", description: "Primary indication"}
+  start_time: {type: datetime, elso_field: "ecmo.cannulation_datetime", description: "ECMO cannulation timestamp"}
+  end_time: {type: datetime, elso_field: "ecmo.decannulation_datetime", description: "ECMO decannulation timestamp"}
+  duration_hours: {type: number, elso_field: "ecmo.duration_hours", unit: "hours", description: "Total ECMO duration"}
+  ecpd: {type: boolean, elso_field: "ecmo.ecpr_performed", description: "Extracorporeal CPR performed"}
+  location_initiated: {type: string, enum: [icu, ed, or, cath_lab, ward, other], elso_field: "ecmo.initiation_location", description: "Location where ECMO initiated"}
 
-# Clinical Indicators
-clinical_indicators:
-  primary_diagnosis:
-    type: string
-    description: "Primary diagnosis leading to ECMO"
-    elso_code: "PRIM_DIAG"
-  
-  cardiac_arrest:
-    type: boolean
-    description: "Cardiac arrest before ECMO"
-    elso_code: "ARREST"
-  
-  cpr_duration_min:
-    type: integer
-    description: "Duration of CPR in minutes"
-    range: [0, 300]
-    elso_code: "CPR_DUR"
+cannulation:
+  # Cannulation Details (ELSO Section 3b: Cannulation)
+  arterial_cannula_type: {type: string, elso_field: "cannulation.arterial_cannula_type", description: "Arterial cannula type/brand"}
+  arterial_cannula_size_fr: {type: number, elso_field: "cannulation.arterial_cannula_size", unit: "Fr", description: "Arterial cannula size"}
+  arterial_site: {type: string, enum: [femoral, carotid, axillary, aortic, other], elso_field: "cannulation.arterial_site", description: "Arterial cannulation site"}
+  venous_cannula_type: {type: string, elso_field: "cannulation.venous_cannula_type", description: "Venous cannula type/brand"}
+  venous_cannula_size_fr: {type: number, elso_field: "cannulation.venous_cannula_size", unit: "Fr", description: "Venous cannula size"}
+  venous_site: {type: string, enum: [femoral, jugular, bicaval, atrial, other], elso_field: "cannulation.venous_site", description: "Venous drainage site"}
+  approach: {type: string, enum: [percutaneous, surgical], elso_field: "cannulation.approach", description: "Cannulation approach"}
+  additional_cannula: {type: boolean, elso_field: "cannulation.additional_cannula", description: "Additional cannula placed"}
+  distal_perfusion: {type: boolean, elso_field: "cannulation.distal_perfusion_catheter", description: "Distal perfusion catheter used"}
 
-# Laboratory Values
-laboratory:
-  ph_pre:
-    type: float
-    description: "pH before ECMO initiation"
-    range: [6.0, 8.0]
-    elso_code: "PH_PRE"
-  
-  pco2_pre_mmhg:
-    type: float
-    description: "PCO2 before ECMO (mmHg)"
-    range: [10.0, 200.0]
-    elso_code: "PCO2_PRE"
-  
-  po2_pre_mmhg:
-    type: float
-    description: "PO2 before ECMO (mmHg)"
-    range: [20.0, 500.0]
-    elso_code: "PO2_PRE"
-  
-  lactate_pre_mmol:
-    type: float
-    description: "Lactate before ECMO (mmol/L)"
-    range: [0.5, 30.0]
-    elso_code: "LACT_PRE"
+circuit:
+  # ECMO Circuit (ELSO Section 3c: Circuit)
+  pump_type: {type: string, enum: [centrifugal, roller], elso_field: "circuit.pump_type", description: "Pump type"}
+  oxygenator_type: {type: string, elso_field: "circuit.oxygenator_type", description: "Oxygenator model"}
+  oxygenator_surface_area: {type: number, elso_field: "circuit.oxygenator_surface_area_m2", unit: "m²", description: "Membrane surface area"}
+  hemofilter: {type: boolean, elso_field: "circuit.hemofilter_inline", description: "Inline hemofilter present"}
+  anticoagulation: {type: string, enum: [heparin, bivalirudin, argatroban, none], elso_field: "circuit.anticoagulation_agent", description: "Anticoagulation strategy"}
 
-# NIRS Data
-nirs:
-  cerebral_so2:
-    type: float
-    description: "Cerebral tissue oxygen saturation (%)"
-    range: [0.0, 100.0]
-    unit: "percentage"
-  
-  renal_so2:
-    type: float
-    description: "Renal tissue oxygen saturation (%)"
-    range: [0.0, 100.0]
-    unit: "percentage"
-  
-  somatic_so2:
-    type: float
-    description: "Somatic tissue oxygen saturation (%)"
-    range: [0.0, 100.0]
-    unit: "percentage"
+support_params:
+  # ECMO Parameters (ELSO Section 4: Daily ECMO Parameters)
+  timestamp: {type: datetime, elso_field: "params.measurement_time", description: "Parameter measurement time"}
+  pump_speed_rpm: {type: number, elso_field: "params.pump_speed_rpm", unit: "RPM", description: "Pump rotation speed"}
+  flow_l_min: {type: number, elso_field: "params.blood_flow_rate", unit: "L/min", description: "ECMO blood flow rate"}
+  flow_index: {type: number, elso_field: "params.flow_index", unit: "L/min/m²", description: "Flow indexed to BSA"}
+  sweep_gas_l_min: {type: number, elso_field: "params.sweep_gas_flow", unit: "L/min", description: "Sweep gas flow rate"}
+  fio2_ecmo: {type: number, elso_field: "params.ecmo_fio2", unit: "fraction", range: [0.21, 1.0], description: "FiO2 on ECMO circuit"}
+  pre_oxy_pressure: {type: number, elso_field: "params.pre_oxygenator_pressure", unit: "mmHg", description: "Pre-oxygenator pressure"}
+  post_oxy_pressure: {type: number, elso_field: "params.post_oxygenator_pressure", unit: "mmHg", description: "Post-oxygenator pressure"}
+  delta_p: {type: number, elso_field: "params.transmembrane_pressure_gradient", unit: "mmHg", description: "Transmembrane pressure gradient"}
+  temperature_c: {type: number, elso_field: "params.blood_temperature", unit: "°C", description: "Blood temperature"}
 
-# Risk Scores
-risk_scores:
-  save_ii_score:
-    type: float
-    description: "SAVE-II score for survival prediction"
-    range: [-20.0, 20.0]
-  
-  resp_ecmo_score:
-    type: float
-    description: "RESP score for respiratory ECMO"
-    range: [-22.0, 15.0]
-  
-  preserve_score:
-    type: float
-    description: "PRESERvE score"
-    range: [0.0, 100.0]
+labs_vitals:
+  # Laboratory and Vital Signs (ELSO Section 5: Labs)
+  timestamp: {type: datetime, elso_field: "labs.measurement_time", description: "Lab draw time"}
 
-# Outcomes
+  # Hematology
+  hemoglobin_g_dl: {type: number, elso_field: "labs.hemoglobin", unit: "g/dL", description: "Hemoglobin"}
+  hematocrit_pct: {type: number, elso_field: "labs.hematocrit", unit: "%", description: "Hematocrit"}
+  platelets_10e9_l: {type: number, elso_field: "labs.platelet_count", unit: "×10⁹/L", description: "Platelet count"}
+  wbc_10e9_l: {type: number, elso_field: "labs.wbc_count", unit: "×10⁹/L", description: "White blood cell count"}
+
+  # Coagulation
+  pt_sec: {type: number, elso_field: "labs.prothrombin_time", unit: "seconds", description: "Prothrombin time"}
+  ptt_sec: {type: number, elso_field: "labs.partial_thromboplastin_time", unit: "seconds", description: "Activated PTT"}
+  inr: {type: number, elso_field: "labs.inr", description: "International normalized ratio"}
+  fibrinogen_mg_dl: {type: number, elso_field: "labs.fibrinogen", unit: "mg/dL", description: "Fibrinogen"}
+  d_dimer_mg_l: {type: number, elso_field: "labs.d_dimer", unit: "mg/L", description: "D-dimer"}
+  act_sec: {type: number, elso_field: "labs.activated_clotting_time", unit: "seconds", description: "Activated clotting time"}
+
+  # Chemistry
+  sodium_mmol_l: {type: number, elso_field: "labs.sodium", unit: "mmol/L", description: "Serum sodium"}
+  potassium_mmol_l: {type: number, elso_field: "labs.potassium", unit: "mmol/L", description: "Serum potassium"}
+  chloride_mmol_l: {type: number, elso_field: "labs.chloride", unit: "mmol/L", description: "Serum chloride"}
+  bicarbonate_mmol_l: {type: number, elso_field: "labs.bicarbonate", unit: "mmol/L", description: "Serum bicarbonate"}
+  bun_mg_dl: {type: number, elso_field: "labs.blood_urea_nitrogen", unit: "mg/dL", description: "Blood urea nitrogen"}
+  creatinine_mg_dl: {type: number, elso_field: "labs.creatinine", unit: "mg/dL", description: "Serum creatinine"}
+  lactate_mmol_l: {type: number, elso_field: "labs.lactate", unit: "mmol/L", description: "Serum lactate"}
+  glucose_mg_dl: {type: number, elso_field: "labs.glucose", unit: "mg/dL", description: "Blood glucose"}
+
+  # Liver
+  bilirubin_total_mg_dl: {type: number, elso_field: "labs.total_bilirubin", unit: "mg/dL", description: "Total bilirubin"}
+  alt_u_l: {type: number, elso_field: "labs.alanine_aminotransferase", unit: "U/L", description: "ALT"}
+  ast_u_l: {type: number, elso_field: "labs.aspartate_aminotransferase", unit: "U/L", description: "AST"}
+
+  # Blood Gas (Pre-Oxygenator)
+  abg_ph: {type: number, elso_field: "labs.arterial_ph", range: [6.5, 8.0], description: "Arterial pH"}
+  abg_pao2_mmHg: {type: number, elso_field: "labs.arterial_pao2", unit: "mmHg", description: "Arterial PaO2"}
+  abg_paco2_mmHg: {type: number, elso_field: "labs.arterial_paco2", unit: "mmHg", description: "Arterial PaCO2"}
+  abg_hco3_mmol_l: {type: number, elso_field: "labs.arterial_bicarbonate", unit: "mmol/L", description: "Arterial HCO3"}
+  abg_base_excess: {type: number, elso_field: "labs.arterial_base_excess", unit: "mmol/L", description: "Base excess"}
+  sao2_pct: {type: number, elso_field: "labs.arterial_oxygen_saturation", unit: "%", description: "Arterial O2 saturation"}
+
+  # Vital Signs
+  hr_bpm: {type: number, elso_field: "vitals.heart_rate", unit: "bpm", description: "Heart rate"}
+  map_mmHg: {type: number, elso_field: "vitals.mean_arterial_pressure", unit: "mmHg", description: "Mean arterial pressure"}
+  sbp_mmHg: {type: number, elso_field: "vitals.systolic_bp", unit: "mmHg", description: "Systolic blood pressure"}
+  dbp_mmHg: {type: number, elso_field: "vitals.diastolic_bp", unit: "mmHg", description: "Diastolic blood pressure"}
+  cvp_mmHg: {type: number, elso_field: "vitals.central_venous_pressure", unit: "mmHg", description: "Central venous pressure"}
+  resp_rate: {type: number, elso_field: "vitals.respiratory_rate", unit: "/min", description: "Respiratory rate"}
+  spo2_pct: {type: number, elso_field: "vitals.pulse_oximetry", unit: "%", description: "Pulse oximetry SpO2"}
+  temp_c: {type: number, elso_field: "vitals.temperature", unit: "°C", description: "Core temperature"}
+
+ventilator:
+  # Ventilator Settings (ELSO Section 6: Ventilator)
+  mode: {type: string, enum: [pc, vc, prvc, simv, cpap, psv, other, off], elso_field: "vent.mode", description: "Ventilator mode"}
+  fio2_vent: {type: number, elso_field: "vent.fio2", unit: "fraction", range: [0.21, 1.0], description: "Ventilator FiO2"}
+  peep_cmh2o: {type: number, elso_field: "vent.peep", unit: "cmH2O", description: "PEEP"}
+  pip_cmh2o: {type: number, elso_field: "vent.peak_inspiratory_pressure", unit: "cmH2O", description: "Peak inspiratory pressure"}
+  plateau_pressure: {type: number, elso_field: "vent.plateau_pressure", unit: "cmH2O", description: "Plateau pressure"}
+  tidal_volume_ml: {type: number, elso_field: "vent.tidal_volume", unit: "mL", description: "Tidal volume"}
+  respiratory_rate: {type: number, elso_field: "vent.respiratory_rate", unit: "/min", description: "Set respiratory rate"}
+  minute_ventilation: {type: number, elso_field: "vent.minute_ventilation", unit: "L/min", description: "Minute ventilation"}
+
+complications:
+  # ECMO Complications (ELSO Section 7: Complications)
+  # Mechanical
+  oxygenator_failure: {type: boolean, elso_field: "complications.oxygenator_failure", code_ref: "etl/codes/ecmo_complications.yaml", description: "Oxygenator failure requiring change"}
+  circuit_change: {type: boolean, elso_field: "complications.circuit_changed", description: "Emergency circuit change"}
+  pump_malfunction: {type: boolean, elso_field: "complications.pump_malfunction", description: "Pump malfunction"}
+  air_embolism: {type: boolean, elso_field: "complications.air_embolism", description: "Air embolism"}
+  cannula_problem: {type: boolean, elso_field: "complications.cannula_problem", description: "Cannula malposition/occlusion"}
+
+  # Hemorrhagic
+  bleeding_major: {type: boolean, elso_field: "complications.major_hemorrhage", code_ref: "etl/codes/ecmo_complications.yaml", description: "Major bleeding requiring intervention"}
+  bleeding_cannula_site: {type: boolean, elso_field: "complications.cannula_site_bleeding", description: "Cannula site bleeding"}
+  bleeding_surgical_site: {type: boolean, elso_field: "complications.surgical_site_bleeding", description: "Surgical site bleeding"}
+  bleeding_gi: {type: boolean, elso_field: "complications.gastrointestinal_hemorrhage", description: "GI hemorrhage"}
+  bleeding_pulmonary: {type: boolean, elso_field: "complications.pulmonary_hemorrhage", description: "Pulmonary hemorrhage"}
+  bleeding_cns: {type: boolean, elso_field: "complications.cns_hemorrhage", description: "CNS hemorrhage"}
+  tamponade: {type: boolean, elso_field: "complications.cardiac_tamponade", description: "Cardiac tamponade"}
+  hemothorax: {type: boolean, elso_field: "complications.hemothorax", description: "Hemothorax"}
+
+  # Neurological
+  stroke_ischemic: {type: boolean, elso_field: "complications.ischemic_stroke", code_ref: "etl/codes/ecmo_complications.yaml", description: "Ischemic stroke"}
+  stroke_hemorrhagic: {type: boolean, elso_field: "complications.hemorrhagic_stroke", description: "Hemorrhagic stroke"}
+  seizures: {type: boolean, elso_field: "complications.seizures", description: "Seizures during ECMO"}
+  brain_death: {type: boolean, elso_field: "complications.brain_death", description: "Brain death"}
+
+  # Cardiovascular
+  myocardial_infarction: {type: boolean, elso_field: "complications.myocardial_infarction", description: "MI during ECMO"}
+  arrhythmia: {type: boolean, elso_field: "complications.arrhythmia", description: "Significant arrhythmia"}
+  cardiac_arrest: {type: boolean, elso_field: "complications.cardiac_arrest_on_ecmo", description: "Cardiac arrest while on ECMO"}
+  limb_ischemia: {type: boolean, elso_field: "complications.limb_ischemia", code_ref: "etl/codes/ecmo_complications.yaml", description: "Limb ischemia"}
+  compartment_syndrome: {type: boolean, elso_field: "complications.compartment_syndrome", description: "Compartment syndrome"}
+
+  # Renal
+  aki: {type: boolean, elso_field: "complications.acute_kidney_injury", description: "Acute kidney injury"}
+  renal_replacement_therapy: {type: boolean, elso_field: "complications.crrt_initiated", code_ref: "etl/codes/ecmo_procedures.yaml", description: "CRRT/dialysis required"}
+
+  # Infectious
+  sepsis: {type: boolean, elso_field: "complications.sepsis", code_ref: "etl/codes/ecmo_complications.yaml", description: "Sepsis during ECMO"}
+  pneumonia: {type: boolean, elso_field: "complications.pneumonia", description: "Pneumonia"}
+  bloodstream_infection: {type: boolean, elso_field: "complications.bloodstream_infection", description: "Bloodstream infection"}
+  cannula_site_infection: {type: boolean, elso_field: "complications.cannula_site_infection", description: "Cannula site infection"}
+
+  # Metabolic
+  hyperbilirubinemia: {type: boolean, elso_field: "complications.hyperbilirubinemia", description: "Severe hyperbilirubinemia"}
+  hyperglycemia: {type: boolean, elso_field: "complications.hyperglycemia", description: "Severe hyperglycemia"}
+  metabolic_acidosis: {type: boolean, elso_field: "complications.metabolic_acidosis", description: "Severe metabolic acidosis"}
+
+  # Other
+  hemolysis: {type: boolean, elso_field: "complications.hemolysis", description: "Clinically significant hemolysis"}
+  dit: {type: boolean, elso_field: "complications.dit", description: "Disseminated intravascular coagulation"}
+  heparin_induced_thrombocytopenia: {type: boolean, elso_field: "complications.hit", description: "HIT"}
+
+interventions:
+  # Interventions During ECMO (ELSO Section 8: Procedures)
+  prbc_transfusion: {type: boolean, elso_field: "interventions.prbc_transfused", code_ref: "etl/codes/ecmo_procedures.yaml", description: "Packed RBC transfusion"}
+  platelet_transfusion: {type: boolean, elso_field: "interventions.platelet_transfused", description: "Platelet transfusion"}
+  ffp_transfusion: {type: boolean, elso_field: "interventions.ffp_transfused", description: "Fresh frozen plasma"}
+  cryoprecipitate: {type: boolean, elso_field: "interventions.cryoprecipitate_transfused", description: "Cryoprecipitate transfusion"}
+  surgical_procedure: {type: boolean, elso_field: "interventions.surgical_procedure", description: "Surgical procedure during ECMO"}
+  bronchoscopy: {type: boolean, elso_field: "interventions.bronchoscopy", description: "Bronchoscopy"}
+  echocardiography: {type: boolean, elso_field: "interventions.echocardiography", description: "Echocardiography performed"}
+  ct_imaging: {type: boolean, elso_field: "interventions.ct_imaging", description: "CT imaging"}
+  cardiac_catheterization: {type: boolean, elso_field: "interventions.cardiac_catheterization", description: "Cardiac catheterization"}
+
 outcomes:
-  duration_hours:
-    type: integer
-    description: "ECMO duration in hours"
-    range: [1, 2000]
-    elso_code: "DURATION"
-  
-  survival_to_discharge:
-    type: boolean
-    description: "Survival to hospital discharge"
-    elso_code: "SURV_DC"
-  
-  neurologic_outcome:
-    type: enum
-    description: "Neurological outcome at discharge"
-    values: ["normal", "mild_deficit", "moderate_deficit", "severe_deficit", "death"]
-    elso_code: "NEURO"
+  # Outcomes (ELSO Section 9: Outcomes)
+  weaned: {type: boolean, elso_field: "outcomes.successfully_weaned", description: "Successfully weaned from ECMO"}
+  decannulation_reason: {type: string, enum: [weaned, died, transitioned, withdrew_care, brain_death], elso_field: "outcomes.decannulation_reason", description: "Reason for ECMO discontinuation"}
+  survival_24h: {type: boolean, elso_field: "outcomes.survived_24h_post_decannulation", description: "Survived 24h post-decannulation"}
+  survival_to_discharge: {type: boolean, elso_field: "outcomes.survival_to_hospital_discharge", description: "Survived to hospital discharge"}
+  survival_6mo: {type: boolean, elso_field: "outcomes.survival_6_months", description: "Survival at 6 months"}
+  icu_los_days: {type: number, elso_field: "outcomes.icu_length_of_stay_days", unit: "days", description: "ICU length of stay"}
+  hosp_los_days: {type: number, elso_field: "outcomes.hospital_length_of_stay_days", unit: "days", description: "Hospital length of stay"}
+  ventilator_free_days: {type: number, elso_field: "outcomes.ventilator_free_days_28", unit: "days", description: "Ventilator-free days at 28 days"}
+  discharge_disposition: {type: string, enum: [home, rehab, ltac, nursing_home, morgue, other], elso_field: "outcomes.discharge_disposition", description: "Discharge disposition"}
+  neurological_outcome: {type: string, enum: [normal, mild_deficit, moderate_deficit, severe_deficit, vegetative, brain_death], elso_field: "outcomes.neurological_status_discharge", description: "Neurological status at discharge"}
+  functional_status: {type: string, elso_field: "outcomes.functional_status", description: "Functional status assessment"}
 
-# Cost Data
 economics:
-  total_cost_usd:
-    type: float
-    description: "Total hospital cost in USD"
-    range: [0.0, 1000000.0]
-  
-  daily_cost_usd:
-    type: float
-    description: "Daily ECMO cost in USD"
-    range: [0.0, 10000.0]
-  
-  qaly_gained:
-    type: float
-    description: "Quality-adjusted life years gained"
-    range: [0.0, 50.0]
+  # Cost Data (Taiwan-specific)
+  total_cost_local: {type: number, elso_field: "economics.total_cost_twd", unit: "TWD", description: "Total hospitalization cost (Taiwan dollars)"}
+  ecmo_daily_cost: {type: number, elso_field: "economics.ecmo_daily_cost_twd", unit: "TWD/day", description: "Daily ECMO cost"}
+  icu_cost: {type: number, elso_field: "economics.icu_cost_twd", unit: "TWD", description: "ICU cost"}
+  pharmaceutical_cost: {type: number, elso_field: "economics.pharmaceutical_cost_twd", unit: "TWD", description: "Medication cost"}
+  blood_product_cost: {type: number, elso_field: "economics.blood_product_cost_twd", unit: "TWD", description: "Blood product cost"}
+  nhi_reimbursement: {type: number, elso_field: "economics.nhi_reimbursement_twd", unit: "TWD", description: "National Health Insurance reimbursement"}
 
-# Metadata
 metadata:
-  created_at:
-    type: datetime
-    description: "Record creation timestamp"
-    format: "ISO8601"
-  
-  updated_at:
-    type: datetime
-    description: "Last update timestamp"
-    format: "ISO8601"
-  
-  data_source:
-    type: enum
-    description: "Source of data"
-    values: ["ehr", "manual_entry", "registry", "device"]
+  # Data Quality and Provenance
+  data_source: {type: string, enum: [mimic_iv, ntuh, cgmh, custom], description: "Source database"}
+  extraction_date: {type: datetime, description: "ETL extraction timestamp"}
+  elso_version: {type: string, default: "5.3", description: "ELSO Registry version aligned to"}
+  data_completeness_pct: {type: number, range: [0, 100], description: "Percentage of required fields populated"}
+  validated: {type: boolean, description: "Passed validation rules"}
+  notes: {type: string, description: "Free text notes"}

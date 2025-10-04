@@ -1,68 +1,273 @@
-# ECMO Procedure Codes
-# ICD-10-PCS and CPT codes for ECMO procedures
+# ECMO Procedures and Interventions Coding
+# Aligned with ELSO Registry
+# Coding: ICD-10-PCS, CPT, SNOMED CT
 
-version: "1.0"
-description: "ECMO procedure codes for clinical identification"
-last_updated: "2024-01-01"
+# ECMO Procedures
+ecmo:
+  va_ecmo_initiation:
+    elso_code: "PROC-ECMO-01"
+    description: "Veno-arterial ECMO initiation"
+    icd10_pcs:
+      - 5A1522F  # Extracorporeal oxygenation, membrane, continuous
+    cpt:
+      - 33946    # VA-ECMO or ECLS initiation, peripheral
+      - 33947    # VA-ECMO or ECLS initiation, central
+    snomed: 786451009  # Veno-arterial extracorporeal membrane oxygenation
 
-# ICD-10-PCS Codes
-icd10_pcs:
-  ecmo_initiation:
-    - code: "5A1522F"
-      description: "Extracorporeal membrane oxygenation, continuous, 24-96 consecutive hours"
-    - code: "5A1532F" 
-      description: "Extracorporeal membrane oxygenation, continuous, greater than 96 consecutive hours"
-    - code: "5A1522G"
-      description: "Extracorporeal membrane oxygenation, intermittent, less than 6 hours per day"
-  
-  cannulation:
-    - code: "02HV33Z"
-      description: "Insertion of infusion device into superior vena cava, percutaneous approach"
-    - code: "02HN33Z"
-      description: "Insertion of infusion device into right atrium, percutaneous approach"
-    - code: "03HY33Z"
-      description: "Insertion of infusion device into upper artery, percutaneous approach"
+  vv_ecmo_initiation:
+    elso_code: "PROC-ECMO-02"
+    description: "Veno-venous ECMO initiation"
+    icd10_pcs:
+      - 5A1522F  # Extracorporeal oxygenation
+    cpt:
+      - 33948    # VV-ECMO initiation, peripheral
+      - 33949    # VV-ECMO initiation, central
+    snomed: 427053002  # Veno-venous extracorporeal membrane oxygenation
 
-# CPT Codes  
-cpt:
-  ecmo_management:
-    - code: "33946"
-      description: "Extracorporeal membrane oxygenation (ECMO)/extracorporeal life support (ECLS) provided by physician; daily management, each day, veno-venous"
-    - code: "33947"
-      description: "Extracorporeal membrane oxygenation (ECMO)/extracorporeal life support (ECLS) provided by physician; daily management, each day, veno-arterial"
-    - code: "33948"
-      description: "Extracorporeal membrane oxygenation (ECMO)/extracorporeal life support (ECLS) provided by physician; daily management, each day, veno-arterial-venous"
-  
-  cannulation_cpt:
-    - code: "33951"
-      description: "Insertion of peripheral (arterial and/or venous) cannula(e), percutaneous, birth through 5 years of age"
-    - code: "33952"
-      description: "Insertion of peripheral (arterial and/or venous) cannula(e), percutaneous, 6 years and older"
-    - code: "33953"
-      description: "Insertion of peripheral (arterial and/or venous) cannula(e), open, birth through 5 years of age"
-    - code: "33954"
-      description: "Insertion of peripheral (arterial and/or venous) cannula(e), open, 6 years and older"
+  ecmo_decannulation:
+    elso_code: "PROC-ECMO-03"
+    description: "ECMO decannulation"
+    icd10_pcs:
+      - 5A1522F  # (cessation)
+    cpt:
+      - 33965    # ECMO removal of cannula(e)
+    snomed: 786452002  # Removal of ECMO
 
-# SNOMED-CT Codes
-snomed_ct:
-  procedures:
-    - code: "233573008"
-      description: "Extracorporeal membrane oxygenation"
-    - code: "786451004"
-      description: "Veno-venous extracorporeal membrane oxygenation"
-    - code: "786452006"
-      description: "Veno-arterial extracorporeal membrane oxygenation"
-  
-  devices:
-    - code: "426129001"
-      description: "Extracorporeal membrane oxygenator"
-    - code: "257318008"
-      description: "Extracorporeal circulation equipment"
+  circuit_change:
+    elso_code: "PROC-ECMO-04"
+    description: "ECMO circuit/component change"
+    cpt:
+      - 33969    # ECMO daily management
+    snomed: 702953008  # Replacement of extracorporeal circuit
 
-# Taiwan NHI Codes (if applicable)
-taiwan_nhi:
-  procedures:
-    - code: "68021C"
-      description: "體外膜肺氧合術 (ECMO)"
-    - code: "68022C" 
-      description: "體外膜肺氧合術管路置放"
+  cannula_repositioning:
+    elso_code: "PROC-ECMO-05"
+    description: "Cannula repositioning"
+    cpt:
+      - 33965    # Cannula removal/repositioning
+    snomed: 129352009  # Repositioning of catheter
+
+# Renal Support
+renal_support:
+  crrt:
+    elso_code: "PROC-RENAL-01"
+    description: "Continuous renal replacement therapy"
+    icd10_pcs:
+      - 5A1D60Z  # CRRT, 24 hours
+      - 5A1D70Z  # Intermittent hemodialysis
+    cpt:
+      - 90945    # Dialysis procedure
+    snomed: 714749008  # Continuous renal replacement therapy
+
+  hemodialysis:
+    elso_code: "PROC-RENAL-02"
+    description: "Hemodialysis"
+    icd10_pcs:
+      - 5A1D70Z  # Hemodialysis, single
+    cpt:
+      - 90935    # Hemodialysis with single physician
+    snomed: 108241001  # Hemodialysis
+
+# Transfusions
+transfusion:
+  prbc_transfusion:
+    elso_code: "PROC-TRANS-01"
+    description: "Packed red blood cell transfusion"
+    icd10_pcs:
+      - 30233N1  # Transfusion of nonautologous RBC
+    cpt:
+      - 36430    # Transfusion, blood or blood components
+    snomed: 116859006  # Transfusion of blood product
+
+  platelet_transfusion:
+    elso_code: "PROC-TRANS-02"
+    description: "Platelet transfusion"
+    icd10_pcs:
+      - 30233R1  # Transfusion of platelets
+    cpt:
+      - 36430    # Transfusion
+    snomed: 12719002  # Platelet transfusion
+
+  ffp_transfusion:
+    elso_code: "PROC-TRANS-03"
+    description: "Fresh frozen plasma transfusion"
+    icd10_pcs:
+      - 30233L1  # Transfusion of FFP
+    cpt:
+      - 36430    # Transfusion
+    snomed: 116861002  # Fresh frozen plasma transfusion
+
+  cryoprecipitate:
+    elso_code: "PROC-TRANS-04"
+    description: "Cryoprecipitate transfusion"
+    icd10_pcs:
+      - 30233K1  # Transfusion of cryoprecipitate
+    cpt:
+      - 36430    # Transfusion
+    snomed: 71838004  # Cryoprecipitate transfusion
+
+# Surgical Procedures During ECMO
+surgical:
+  fasciotomy:
+    elso_code: "PROC-SURG-01"
+    description: "Fasciotomy for compartment syndrome"
+    icd10_pcs:
+      - 0JB80ZZ  # Excision of fascia
+    cpt:
+      - 27600    # Fasciotomy, leg
+      - 27892    # Fasciotomy, leg, posterior compartment
+    snomed: 47873009  # Fasciotomy
+
+  amputation:
+    elso_code: "PROC-SURG-02"
+    description: "Limb amputation"
+    icd10_pcs:
+      - 0Y6M0Z0  # Detachment at lower leg
+    cpt:
+      - 27880    # Amputation, leg, through tibia and fibula
+    snomed: 81723002  # Amputation
+
+  thoracotomy:
+    elso_code: "PROC-SURG-03"
+    description: "Thoracotomy"
+    icd10_pcs:
+      - 0WBJ0ZZ  # Excision of pleural cavity
+    cpt:
+      - 32100    # Thoracotomy
+    snomed: 38126007  # Thoracotomy
+
+  laparotomy:
+    elso_code: "PROC-SURG-04"
+    description: "Exploratory laparotomy"
+    icd10_pcs:
+      - 0WJG0ZZ  # Inspection of peritoneal cavity
+    cpt:
+      - 49000    # Exploratory laparotomy
+    snomed: 86481000  # Laparotomy
+
+  tracheostomy:
+    elso_code: "PROC-SURG-05"
+    description: "Tracheostomy"
+    icd10_pcs:
+      - 0B113F4  # Bypass trachea to cutaneous
+    cpt:
+      - 31600    # Tracheostomy, planned
+    snomed: 48387007  # Tracheostomy
+
+# Diagnostic Procedures
+diagnostic:
+  bronchoscopy:
+    elso_code: "PROC-DIAG-01"
+    description: "Bronchoscopy"
+    icd10_pcs:
+      - 0BJB8ZZ  # Inspection of trachea via natural opening
+    cpt:
+      - 31622    # Bronchoscopy, diagnostic
+    snomed: 10847001  # Bronchoscopy
+
+  echocardiography:
+    elso_code: "PROC-DIAG-02"
+    description: "Echocardiography (TTE/TEE)"
+    icd10_pcs:
+      - B24B4ZZ  # Transthoracic echo
+      - B24C4ZZ  # Transesophageal echo
+    cpt:
+      - 93303    # TTE complete
+      - 93312    # TEE complete
+    snomed: 40701008  # Echocardiography
+
+  ct_imaging:
+    elso_code: "PROC-DIAG-03"
+    description: "CT imaging"
+    icd10_pcs:
+      - BW20ZZZ  # CT head/brain
+      - BW25ZZZ  # CT thorax
+    cpt:
+      - 70450    # CT head without contrast
+      - 71250    # CT thorax without contrast
+    snomed: 77477000  # Computerized axial tomography
+
+  cardiac_catheterization:
+    elso_code: "PROC-DIAG-04"
+    description: "Cardiac catheterization"
+    icd10_pcs:
+      - B2111ZZ  # Fluoroscopy of right heart
+      - B2101ZZ  # Fluoroscopy of left heart
+    cpt:
+      - 93451    # Right heart catheterization
+      - 93452    # Left heart catheterization
+    snomed: 41976001  # Cardiac catheterization
+
+  eeg:
+    elso_code: "PROC-DIAG-05"
+    description: "Electroencephalography"
+    icd10_pcs:
+      - 4A00XBZ  # EEG measurement
+    cpt:
+      - 95816    # EEG prolonged
+    snomed: 54550000  # Electroencephalography
+
+# Cardiovascular Interventions
+cardiovascular:
+  pci:
+    elso_code: "PROC-CV-01"
+    description: "Percutaneous coronary intervention"
+    icd10_pcs:
+      - 02703ZZ  # Dilation of coronary artery
+    cpt:
+      - 92920    # PCI with stent placement
+    snomed: 415070008  # Percutaneous coronary intervention
+
+  iabp_insertion:
+    elso_code: "PROC-CV-02"
+    description: "Intra-aortic balloon pump insertion"
+    icd10_pcs:
+      - 02H03DZ  # Insertion of IABP
+    cpt:
+      - 33967    # IABP insertion
+    snomed: 232958002  # Intra-aortic balloon counterpulsation
+
+  pacemaker:
+    elso_code: "PROC-CV-03"
+    description: "Temporary pacemaker insertion"
+    icd10_pcs:
+      - 02HK3KZ  # Insertion of pacemaker lead
+    cpt:
+      - 33210    # Temporary pacemaker insertion
+    snomed: 25267002  # Insertion of cardiac pacemaker
+
+  cardioversion:
+    elso_code: "PROC-CV-04"
+    description: "Electrical cardioversion"
+    icd10_pcs:
+      - 5A2204Z  # Cardioversion
+    cpt:
+      - 92960    # Cardioversion, external
+    snomed: 250980009  # Electrical cardioversion
+
+# Airway/Ventilator Management
+respiratory:
+  mechanical_ventilation:
+    elso_code: "PROC-RESP-01"
+    description: "Mechanical ventilation"
+    icd10_pcs:
+      - 5A1935Z  # Respiratory ventilation, <24 hours
+      - 5A1945Z  # Respiratory ventilation, 24-96 hours
+      - 5A1955Z  # Respiratory ventilation, >96 hours
+    cpt:
+      - 94002    # Ventilation assist, hospital
+    snomed: 40617009  # Artificial ventilation
+
+  prone_positioning:
+    elso_code: "PROC-RESP-02"
+    description: "Prone positioning therapy"
+    snomed: 431182000  # Placing subject in prone position
+
+  inhaled_no:
+    elso_code: "PROC-RESP-03"
+    description: "Inhaled nitric oxide therapy"
+    icd10_pcs:
+      - 3E0F7SF  # Introduction of nitric oxide into respiratory tract
+    cpt:
+      - 94999    # Unlisted pulmonary service
+    snomed: 229312009  # Nitric oxide therapy

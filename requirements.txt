@@ -1,89 +1,20 @@
-# TAIWAN-ECMO-CDSS-NEXT Requirements
-# Python dependencies for ECMO Clinical Decision Support System
+pandas>=2.2
+numpy>=1.26
+scikit-learn>=1.4
+scipy>=1.11
+matplotlib>=3.8
+streamlit>=1.37
+pyyaml>=6.0
+openpyxl>=3.1
+sqlalchemy>=2.0
+imbalanced-learn>=0.11
+shap>=0.43
+psycopg2-binary>=2.9
+requests>=2.31
+seaborn>=0.13
 
-# Core data science and machine learning
-pandas>=1.5.0
-numpy>=1.21.0
-scikit-learn>=1.1.0
-scipy>=1.9.0
-joblib>=1.1.0
-
-# Deep learning and advanced ML (optional)
-xgboost>=1.6.0
-lightgbm>=3.3.0
-
-# Visualization and plotting
-matplotlib>=3.5.0
-seaborn>=0.11.0
-plotly>=5.10.0
-
-# Web application framework
-streamlit>=1.15.0
-
-# Model interpretability
-shap>=0.41.0
-
-# Data validation and processing
-pydantic>=1.9.0
-yaml>=0.2.5
-PyYAML>=6.0
-
-# Database connectivity (for future use)
-sqlalchemy>=1.4.0
-psycopg2-binary>=2.9.0  # PostgreSQL
-pymongo>=4.0.0  # MongoDB (optional)
-
-# API development (for future SMART on FHIR integration)
-fastapi>=0.85.0
-uvicorn>=0.18.0
-requests>=2.28.0
-httpx>=0.23.0
-
-# Clinical data standards
-fhir.resources>=6.5.0  # FHIR R4 support
-hl7apy>=1.3.0  # HL7 message processing
-
-# Statistical analysis
-statsmodels>=0.13.0
-lifelines>=0.27.0  # Survival analysis
-
-# Time series analysis (for NIRS data)
-tslearn>=0.5.0
-
-# Development and testing
-pytest>=7.0.0
-pytest-cov>=3.0.0
-black>=22.0.0  # Code formatting
-flake8>=5.0.0  # Linting
-mypy>=0.991  # Type checking
-
-# Documentation
-sphinx>=5.0.0
-sphinx-rtd-theme>=1.0.0
-
-# Configuration management
-python-dotenv>=0.20.0
-pydantic-settings>=2.0.0
-
-# Deployment and containerization
-gunicorn>=20.1.0
-docker>=6.0.0
-
-# Security
-cryptography>=37.0.0
-pyjwt>=2.4.0
-
-# Logging and monitoring
-structlog>=22.1.0
-
-# Geographic and healthcare specific
-geopy>=2.2.0  # For geographic analysis
-pydicom>=2.3.0  # DICOM support (medical imaging)
-
-# Optional: GPU acceleration
-# torch>=1.12.0  # Uncomment if using PyTorch
-# tensorflow>=2.9.0  # Uncomment if using TensorFlow
-
-# Optional: Advanced analytics
-# networkx>=2.8  # Network analysis
-# bokeh>=2.4.0  # Interactive visualization
+# Testing dependencies
+pytest>=7.4
+pytest-cov>=4.1
+pytest-xdist>=3.3
+pytest-mock>=3.11

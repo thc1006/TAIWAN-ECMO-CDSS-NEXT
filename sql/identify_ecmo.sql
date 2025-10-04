@@ -1,267 +1,294 @@
-/*
-MIMIC-IV Demo SQL: Identify ECMO Episodes
-Taiwan ECMO CDSS - ECMO Episode Identification Query
+-- =====================================================================
+-- MIMIC-IV ECMO Episode Identification
+-- =====================================================================
+-- Purpose: Identify ECMO episodes with start/end times, mode, and parameters
+-- Schema: MIMIC-IV 3.1 (mimiciv_icu, mimiciv_hosp)
+-- Output: ECMO episodes with temporal boundaries and mode classification
+-- ELSO Alignment: ecmo_episode section of data_dictionary.yaml
+-- =====================================================================
 
-This query identifies ECMO episodes from MIMIC-IV database using:
-1. Procedure codes (ICD-10-PCS, CPT)  
-2. Medication administration (ECMO-related drugs)
-3. Chartevents (ECMO parameters)
-4. Device-related documentation
-
-Author: Taiwan ECMO CDSS Team
-Version: 1.0
-Date: 2024-01-01
-*/
-
--- Main ECMO Episodes Query
-WITH ecmo_procedures AS (
-    -- Identify ECMO from procedure codes
-    SELECT 
-        p.subject_id,
-        p.hadm_id,
-        p.seq_num,
-        p.icd_code,
-        p.icd_version,
-        d.long_title as procedure_description,
-        'procedure_code' as identification_method
-    FROM mimiciv_hosp.procedures_icd p
-    LEFT JOIN mimiciv_hosp.d_icd_procedures d 
-        ON p.icd_code = d.icd_code AND p.icd_version = d.icd_version
-    WHERE 
-        -- ICD-10-PCS ECMO codes
-        (p.icd_version = 10 AND p.icd_code IN (
-            '5A1522F',  -- ECMO continuous 24-96 hours
-            '5A1532F',  -- ECMO continuous >96 hours  
-            '5A1522G',  -- ECMO intermittent <6 hours/day
-            '5A15223',  -- Extracorporeal oxygenation, membrane
-            '5A1935Z'   -- Respiratory ventilation, less than 24 consecutive hours
-        ))
-        -- ICD-9 ECMO codes (if present)
-        OR (p.icd_version = 9 AND p.icd_code IN (
-            '3965',     -- Extracorporeal membrane oxygenation
-            '3966'      -- Percutaneous cardiopulmonary bypass
-        ))
+-- =====================================================================
+-- Step 1: Identify ECMO-related chart event items
+-- =====================================================================
+WITH ecmo_items AS (
+  SELECT itemid, label, category
+  FROM mimiciv_icu.d_items
+  WHERE
+    LOWER(label) ~ '(ecmo|oxygenator|circuit|sweep|cannula)'
+    OR LOWER(category) ~ 'ecmo'
 ),
 
-ecmo_medications AS (
-    -- Identify ECMO-related medications
-    SELECT DISTINCT
-        p.subject_id,
-        p.hadm_id,
-        p.starttime,
-        p.endtime,
-        p.drug as medication_name,
-        'ecmo_medication' as identification_method
-    FROM mimiciv_icu.prescriptions p
-    WHERE 
-        LOWER(p.drug) LIKE '%heparin%'
-        OR LOWER(p.drug) LIKE '%bivalirudin%'
-        OR LOWER(p.drug) LIKE '%argatroban%'
-        -- High-dose vasopressor combinations suggesting ECMO support
-        OR (LOWER(p.drug) LIKE '%norepinephrine%' AND p.dose_val_rx > 0.5)
-        OR (LOWER(p.drug) LIKE '%epinephrine%' AND p.dose_val_rx > 0.3)
-),
-
-ecmo_chartevents AS (
-    -- Identify ECMO from chartevents/monitoring data
-    SELECT DISTINCT
-        c.subject_id,
-        c.hadm_id,
-        c.stay_id,
-        c.charttime,
-        c.itemid,
-        d.label,
-        c.value,
-        c.valuenum,
-        'chart_events' as identification_method
-    FROM mimiciv_icu.chartevents c
-    LEFT JOIN mimiciv_icu.d_items d ON c.itemid = d.itemid
-    WHERE 
-        -- ECMO flow rates
-        (d.label ILIKE '%ecmo%flow%' OR d.label ILIKE '%extracorporeal%flow%')
-        -- ECMO pressures  
-        OR (d.label ILIKE '%ecmo%pressure%')
-        -- ECMO oxygenator parameters
-        OR (d.label ILIKE '%sweep%gas%' OR d.label ILIKE '%oxygenator%')
-        -- ECMO cannula documentation
-        OR (d.label ILIKE '%cannula%' AND d.label ILIKE '%ecmo%')
-        -- ECMO circuit parameters
-        OR (d.label ILIKE '%ecmo%circuit%' OR d.label ILIKE '%membrane%oxygenator%')
-        -- Look for specific ECMO-related itemids (these would need to be validated)
-        OR c.itemid IN (
-            -- These are example itemids - actual MIMIC-IV itemids would need verification
-            227287, -- ECMO Flow
-            227288, -- ECMO Sweep Gas
-            227289  -- ECMO Pressure
-        )
-),
-
-ecmo_notes AS (
-    -- Identify ECMO from clinical notes
-    SELECT DISTINCT
-        n.subject_id,
-        n.hadm_id,
-        n.chartdate,
-        n.category,
-        n.description,
-        'clinical_notes' as identification_method
-    FROM mimiciv_note.noteevents n
-    WHERE 
-        -- Search for ECMO mentions in notes
-        LOWER(n.text) LIKE '%ecmo%'
-        OR LOWER(n.text) LIKE '%extracorporeal membrane oxygenation%'
-        OR LOWER(n.text) LIKE '%extracorporeal life support%'
-        OR LOWER(n.text) LIKE '%ecls%'
-        -- Cannulation mentions
-        OR (LOWER(n.text) LIKE '%cannul%' AND LOWER(n.text) LIKE '%extracorporeal%')
-        -- ECMO weaning/decannulation
-        OR LOWER(n.text) LIKE '%decannul%'
-        OR (LOWER(n.text) LIKE '%wean%' AND LOWER(n.text) LIKE '%ecmo%')
-),
-
--- Combine all identification methods
-all_ecmo_episodes AS (
-    SELECT subject_id, hadm_id, identification_method FROM ecmo_procedures
-    UNION
-    SELECT subject_id, hadm_id, identification_method FROM ecmo_medications  
-    UNION
-    SELECT subject_id, hadm_id, identification_method FROM ecmo_chartevents
-    UNION
-    SELECT subject_id, hadm_id, identification_method FROM ecmo_notes
-),
-
--- Aggregate by patient and admission
-ecmo_episodes_summary AS (
-    SELECT 
-        e.subject_id,
-        e.hadm_id,
-        STRING_AGG(DISTINCT e.identification_method, ', ') as identification_methods,
-        COUNT(DISTINCT e.identification_method) as num_identification_methods
-    FROM all_ecmo_episodes e
-    GROUP BY e.subject_id, e.hadm_id
-)
-
--- Main query with patient details
-SELECT 
+-- =====================================================================
+-- Step 2: Identify ECMO from procedure events (ICD-10-PCS codes)
+-- =====================================================================
+ecmo_procedures AS (
+  SELECT DISTINCT
     p.subject_id,
-    p.gender,
-    p.anchor_age as age_at_admission,
-    a.hadm_id,
-    a.admittime,
-    a.dischtime,
-    a.deathtime,
-    a.admission_type,
-    a.admission_location,
-    a.discharge_location,
-    -- ECMO identification
-    es.identification_methods,
-    es.num_identification_methods,
-    
-    -- Clinical characteristics
-    CASE WHEN a.deathtime IS NOT NULL THEN 1 ELSE 0 END as died_during_admission,
-    DATE_PART('day', a.dischtime - a.admittime) as length_of_stay_days,
-    
-    -- Try to determine ECMO type from procedures
-    CASE 
-        WHEN ep.icd_code IN ('5A1522F', '5A1532F', '5A1522G') THEN 
-            CASE 
-                WHEN a.admission_type = 'URGENT' OR a.admission_type = 'EMERGENCY' 
-                     OR a.admission_location LIKE '%EMERGENCY%' THEN 'VA_likely'
-                ELSE 'VV_likely' 
-            END
-        ELSE 'unknown'
-    END as probable_ecmo_type,
-    
-    -- Additional context
-    ep.procedure_description as primary_ecmo_procedure
+    p.hadm_id,
+    p.chartdate,
+    p.icd_code,
+    p.icd_version,
+    -- Determine ECMO mode from procedure code
+    CASE
+      -- ICD-10-PCS: 5A1522F = ECMO, Continuous
+      WHEN p.icd_code IN ('5A1522F', '5A1522G') THEN 'ECMO'
+      -- Try to infer VA vs VV from other codes
+      WHEN p.icd_code LIKE '02H%' THEN 'VA' -- Cardiovascular device insertion
+      WHEN p.icd_code LIKE '5A19%' THEN 'VV' -- Respiratory assistance
+      ELSE 'ECMO'
+    END AS mode_hint
+  FROM mimiciv_hosp.procedures_icd p
+  WHERE
+    (p.icd_version = 10 AND p.icd_code IN ('5A1522F', '5A1522G'))
+    OR LOWER((SELECT long_title FROM mimiciv_hosp.d_icd_procedures WHERE icd_code = p.icd_code LIMIT 1)) ~ 'ecmo|extracorporeal'
+),
 
-FROM ecmo_episodes_summary es
-LEFT JOIN mimiciv_hosp.patients p ON es.subject_id = p.subject_id
-LEFT JOIN mimiciv_hosp.admissions a ON es.hadm_id = a.hadm_id
-LEFT JOIN ecmo_procedures ep ON es.subject_id = ep.subject_id AND es.hadm_id = ep.hadm_id
-    AND ep.seq_num = (
-        SELECT MIN(seq_num) 
-        FROM ecmo_procedures ep2 
-        WHERE ep2.subject_id = ep.subject_id AND ep2.hadm_id = ep.hadm_id
-    )
+-- =====================================================================
+-- Step 3: Collect all ECMO chart events with timestamps
+-- =====================================================================
+ecmo_chart_events AS (
+  SELECT
+    ce.subject_id,
+    ce.hadm_id,
+    ce.stay_id,
+    ce.charttime,
+    ce.itemid,
+    ei.label,
+    ei.category,
+    ce.value,
+    ce.valuenum,
+    ce.valueuom
+  FROM mimiciv_icu.chartevents ce
+  INNER JOIN ecmo_items ei USING (itemid)
+  WHERE
+    ce.value IS NOT NULL
+    -- Filter out obvious errors
+    AND ce.charttime IS NOT NULL
+),
 
-ORDER BY es.num_identification_methods DESC, p.subject_id, a.admittime;
+-- =====================================================================
+-- Step 4: Identify ECMO episodes by grouping temporal clusters
+-- =====================================================================
+-- First, identify all distinct patients with ECMO events
+ecmo_patients AS (
+  SELECT DISTINCT subject_id, hadm_id, stay_id
+  FROM ecmo_chart_events
+  UNION
+  SELECT DISTINCT subject_id, hadm_id, NULL AS stay_id
+  FROM ecmo_procedures
+),
 
--- Additional queries for ECMO episode details
+-- Create temporal windows for each patient (gap > 48 hours = new episode)
+ecmo_events_ordered AS (
+  SELECT
+    subject_id,
+    hadm_id,
+    stay_id,
+    charttime,
+    LAG(charttime) OVER (PARTITION BY subject_id, hadm_id ORDER BY charttime) AS prev_charttime
+  FROM ecmo_chart_events
+),
 
--- Query 2: ECMO Timeline and Parameters
-SELECT 
-    c.subject_id,
-    c.hadm_id,
-    c.stay_id,
-    c.charttime,
-    d.label as parameter_name,
-    c.value,
-    c.valuenum,
-    c.valueuom as unit_of_measure,
-    -- Categorize ECMO parameters
-    CASE 
-        WHEN d.label ILIKE '%flow%' THEN 'flow'
-        WHEN d.label ILIKE '%pressure%' THEN 'pressure'  
-        WHEN d.label ILIKE '%sweep%' THEN 'ventilator'
-        WHEN d.label ILIKE '%temperature%' THEN 'temperature'
-        ELSE 'other'
-    END as parameter_category
-FROM mimiciv_icu.chartevents c
-LEFT JOIN mimiciv_icu.d_items d ON c.itemid = d.itemid
-WHERE (c.subject_id, c.hadm_id) IN (
-    SELECT DISTINCT subject_id, hadm_id FROM ecmo_episodes_summary
+ecmo_episodes_raw AS (
+  SELECT
+    subject_id,
+    hadm_id,
+    stay_id,
+    charttime,
+    -- New episode if gap > 48 hours or first event
+    CASE
+      WHEN prev_charttime IS NULL THEN 1
+      WHEN charttime - prev_charttime > INTERVAL '48 hours' THEN 1
+      ELSE 0
+    END AS new_episode_flag
+  FROM ecmo_events_ordered
+),
+
+ecmo_episodes_numbered AS (
+  SELECT
+    subject_id,
+    hadm_id,
+    stay_id,
+    charttime,
+    SUM(new_episode_flag) OVER (PARTITION BY subject_id, hadm_id ORDER BY charttime) AS episode_num
+  FROM ecmo_episodes_raw
+),
+
+ecmo_episodes AS (
+  SELECT
+    subject_id,
+    hadm_id,
+    stay_id,
+    episode_num,
+    MIN(charttime) AS start_time,
+    MAX(charttime) AS end_time,
+    COUNT(*) AS num_chart_events,
+    ROUND(EXTRACT(EPOCH FROM (MAX(charttime) - MIN(charttime))) / 3600.0, 2) AS duration_hours
+  FROM ecmo_episodes_numbered
+  GROUP BY subject_id, hadm_id, stay_id, episode_num
+),
+
+-- =====================================================================
+-- Step 5: Determine ECMO mode (VA vs VV) from multiple sources
+-- =====================================================================
+-- Try to infer mode from diagnoses (cardiac = VA, respiratory = VV)
+mode_from_diagnosis AS (
+  SELECT DISTINCT
+    e.subject_id,
+    e.hadm_id,
+    e.episode_num,
+    CASE
+      -- Cardiac diagnoses suggest VA ECMO
+      WHEN d.icd_code IN ('I46.9', 'I46.2', 'I46.8', 'R57.0', 'I21.0', 'I21.1', 'I21.2', 'I21.3', 'I21.4', 'I21.9',
+                          'I40.0', 'I40.1', 'I40.8', 'I40.9', 'I50.1', 'I50.2', 'I50.3', 'I50.4', 'I50.9')
+           THEN 'VA'
+      -- Respiratory diagnoses suggest VV ECMO
+      WHEN d.icd_code IN ('J80', 'J12.9', 'J13', 'J14', 'J15.9', 'J18.9', 'J69.0', 'J46',
+                          'I27.0', 'I27.2', 'J93.0', 'J93.1', 'U07.1')
+           THEN 'VV'
+      -- ECPR = VA mode
+      WHEN d.icd_code IN ('I46.9', 'I46.2') AND d.seq_num = 1 THEN 'VA'
+      ELSE NULL
+    END AS mode_hint,
+    d.seq_num
+  FROM ecmo_episodes e
+  INNER JOIN mimiciv_hosp.diagnoses_icd d
+    ON e.subject_id = d.subject_id AND e.hadm_id = d.hadm_id
+  WHERE d.icd_version = 10
+),
+
+-- Aggregate mode hints by episode
+mode_inference AS (
+  SELECT
+    subject_id,
+    hadm_id,
+    episode_num,
+    -- Pick the most common mode hint, prioritizing primary diagnosis
+    MODE() WITHIN GROUP (ORDER BY mode_hint) FILTER (WHERE mode_hint IS NOT NULL) AS inferred_mode
+  FROM mode_from_diagnosis
+  GROUP BY subject_id, hadm_id, episode_num
+),
+
+-- =====================================================================
+-- Step 6: Extract key ECMO parameters during each episode
+-- =====================================================================
+ecmo_flow_summary AS (
+  SELECT
+    en.subject_id,
+    en.hadm_id,
+    en.episode_num,
+    ROUND(AVG(ce.valuenum), 2) AS avg_flow_l_min,
+    ROUND(MIN(ce.valuenum), 2) AS min_flow_l_min,
+    ROUND(MAX(ce.valuenum), 2) AS max_flow_l_min
+  FROM ecmo_episodes_numbered en
+  INNER JOIN ecmo_chart_events ce
+    ON en.subject_id = ce.subject_id
+    AND en.hadm_id = ce.hadm_id
+    AND en.charttime = ce.charttime
+  WHERE LOWER(ce.label) ~ '(flow|rpm)'
+    AND ce.valuenum IS NOT NULL
+    AND ce.valuenum > 0
+    AND ce.valuenum < 10  -- Reasonable flow range in L/min
+  GROUP BY en.subject_id, en.hadm_id, en.episode_num
+),
+
+sweep_gas_summary AS (
+  SELECT
+    en.subject_id,
+    en.hadm_id,
+    en.episode_num,
+    ROUND(AVG(ce.valuenum), 2) AS avg_sweep_l_min
+  FROM ecmo_episodes_numbered en
+  INNER JOIN ecmo_chart_events ce
+    ON en.subject_id = ce.subject_id
+    AND en.hadm_id = ce.hadm_id
+    AND en.charttime = ce.charttime
+  WHERE LOWER(ce.label) ~ 'sweep'
+    AND ce.valuenum IS NOT NULL
+    AND ce.valuenum > 0
+    AND ce.valuenum < 20
+  GROUP BY en.subject_id, en.hadm_id, en.episode_num
 )
-AND (
-    d.label ILIKE '%ecmo%'
-    OR d.label ILIKE '%extracorporeal%'
-    OR d.label ILIKE '%sweep%gas%'
-    OR d.label ILIKE '%oxygenator%'
-)
-ORDER BY c.subject_id, c.hadm_id, c.charttime;
 
--- Query 3: ECMO Outcomes and Complications
-SELECT 
-    es.subject_id,
-    es.hadm_id,
-    -- Complications during ECMO (based on diagnosis codes)
-    STRING_AGG(
-        CASE 
-            WHEN d.icd_code LIKE 'T82.%' THEN 'Device_complication'
-            WHEN d.icd_code IN ('D65', 'D68.%') THEN 'Coagulopathy' 
-            WHEN d.icd_code LIKE 'N17.%' THEN 'Acute_kidney_injury'
-            WHEN d.icd_code LIKE 'G93.%' THEN 'Brain_injury'
-            ELSE NULL
-        END, ', '
-    ) as complications,
-    
-    -- Survival outcomes
-    CASE WHEN a.deathtime IS NOT NULL THEN 0 ELSE 1 END as survived_to_discharge,
-    CASE 
-        WHEN a.discharge_location LIKE '%HOME%' THEN 'home'
-        WHEN a.discharge_location LIKE '%REHAB%' THEN 'rehabilitation'  
-        WHEN a.discharge_location LIKE '%SNF%' OR a.discharge_location LIKE '%SKILLED%' THEN 'skilled_nursing'
-        WHEN a.discharge_location LIKE '%HOSPICE%' THEN 'hospice'
-        ELSE a.discharge_location
-    END as discharge_disposition
+-- =====================================================================
+-- Final output: ECMO episodes with mode and parameters
+-- =====================================================================
+SELECT
+  e.subject_id,
+  e.hadm_id,
+  e.stay_id,
+  e.episode_num,
+  e.start_time AS ecmo_start_time,
+  e.end_time AS ecmo_end_time,
+  e.duration_hours AS ecmo_duration_hours,
+  e.num_chart_events,
+  -- ECMO mode determination (VA/VV/VAV/unknown)
+  COALESCE(mi.inferred_mode, 'Unknown') AS ecmo_mode,
+  -- ECMO parameters summary
+  f.avg_flow_l_min,
+  f.min_flow_l_min,
+  f.max_flow_l_min,
+  s.avg_sweep_l_min,
+  -- Link to patient demographics
+  p.anchor_age,
+  p.anchor_year,
+  p.gender,
+  -- Link to admission
+  a.admittime,
+  a.dischtime,
+  a.deathtime,
+  a.admission_type,
+  a.admission_location,
+  a.discharge_location,
+  a.insurance,
+  a.hospital_expire_flag,
+  -- ICU details
+  i.intime AS icu_intime,
+  i.outtime AS icu_outtime,
+  ROUND(EXTRACT(EPOCH FROM (i.outtime - i.intime)) / 3600.0, 2) AS icu_los_hours,
+  -- Survival outcome
+  CASE
+    WHEN a.deathtime IS NOT NULL THEN 0
+    ELSE 1
+  END AS survived_to_discharge,
+  -- ECMO initiated during ICU stay?
+  CASE
+    WHEN e.start_time BETWEEN i.intime AND i.outtime THEN 1
+    ELSE 0
+  END AS ecmo_during_icu
+FROM ecmo_episodes e
+LEFT JOIN mode_inference mi
+  ON e.subject_id = mi.subject_id
+  AND e.hadm_id = mi.hadm_id
+  AND e.episode_num = mi.episode_num
+LEFT JOIN ecmo_flow_summary f
+  ON e.subject_id = f.subject_id
+  AND e.hadm_id = f.hadm_id
+  AND e.episode_num = f.episode_num
+LEFT JOIN sweep_gas_summary s
+  ON e.subject_id = s.subject_id
+  AND e.hadm_id = s.hadm_id
+  AND e.episode_num = s.episode_num
+LEFT JOIN mimiciv_hosp.patients p
+  ON e.subject_id = p.subject_id
+LEFT JOIN mimiciv_hosp.admissions a
+  ON e.subject_id = a.subject_id
+  AND e.hadm_id = a.hadm_id
+LEFT JOIN mimiciv_icu.icustays i
+  ON e.subject_id = i.subject_id
+  AND e.hadm_id = i.hadm_id
+  AND e.stay_id = i.stay_id
+WHERE
+  -- Filter out spurious episodes (< 1 hour or very few events)
+  e.duration_hours >= 1
+  AND e.num_chart_events >= 5
+ORDER BY e.subject_id, e.hadm_id, e.start_time;
 
-FROM ecmo_episodes_summary es
-LEFT JOIN mimiciv_hosp.admissions a ON es.hadm_id = a.hadm_id
-LEFT JOIN mimiciv_hosp.diagnoses_icd d ON es.hadm_id = d.hadm_id
-GROUP BY es.subject_id, es.hadm_id, a.deathtime, a.discharge_location
-ORDER BY es.subject_id;
-
-/*
-Usage Notes:
-1. This query identifies potential ECMO episodes in MIMIC-IV
-2. Multiple identification methods increase confidence 
-3. Manual review recommended for clinical validation
-4. ECMO type determination is probabilistic - clinical review needed
-5. Itemids for ECMO parameters may need adjustment based on actual MIMIC-IV data dictionary
-
-Validation Steps:
-1. Review identified episodes manually
-2. Cross-reference with procedure notes
-3. Validate ECMO parameters and timelines  
-4. Confirm ECMO type (VA vs VV) from clinical context
-*/
+-- =====================================================================
+-- Create materialized view for performance
+-- =====================================================================
+-- Uncomment to create a materialized view:
+-- CREATE MATERIALIZED VIEW ecmo_episodes_identified AS
+-- <insert the above query>
+-- CREATE INDEX idx_ecmo_episodes_subject ON ecmo_episodes_identified(subject_id);
+-- CREATE INDEX idx_ecmo_episodes_hadm ON ecmo_episodes_identified(hadm_id);

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ECMO CDSS Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        body {
+            background: #f8f9fa;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 700;
+        }
+        .patient-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 15px;
+            border-radius: 8px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        }
+        .card-header {
+            background: white;
+            border-bottom: 2px solid #e9ecef;
+            font-weight: 600;
+            color: #2c3e50;
+            padding: 15px 20px;
+        }
+        .risk-card {
+            text-align: center;
+            padding: 30px;
+        }
+        .risk-score {
+            font-size: 4rem;
+            font-weight: 700;
+            margin: 20px 0;
+        }
+        .risk-low { color: #28a745; }
+        .risk-medium { color: #ffc107; }
+        .risk-high { color: #dc3545; }
+        .progress-custom {
+            height: 10px;
+            border-radius: 5px;
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+        .metric-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .metric-unit {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+        .status-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .tab-content {
+            padding: 20px;
+        }
+        .feature-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .feature-item:last-child {
+            border-bottom: none;
+        }
+        .spinner-border-sm {
+            width: 1.5rem;
+            height: 1.5rem;
+        }
+        .timeline-item {
+            border-left: 3px solid #667eea;
+            padding-left: 20px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -8px;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container-fluid px-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1><i class="bi bi-heart-pulse-fill"></i> ECMO Clinical Decision Support</h1>
+                    <div class="patient-badge">
+                        <i class="bi bi-person-fill"></i> <strong id="patient-name">{{ patient_id or 'Unknown' }}</strong>
+                        <span class="ms-2">|</span>
+                        <i class="bi bi-calendar3 ms-2"></i> <span id="patient-age">-- years</span>
+                        <span class="ms-2">|</span>
+                        <i class="bi bi-clipboard-pulse ms-2"></i> MRN: <span id="patient-mrn">--</span>
+                    </div>
+                </div>
+                <div>
+                    <a href="/logout" class="btn btn-outline-light">
+                        <i class="bi bi-box-arrow-right"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container-fluid px-4 py-4">
+        <!-- Risk Assessment Card -->
+        <div class="row">
+            <div class="col-lg-4 mb-4">
+                <div class="card risk-card">
+                    <div class="card-body">
+                        <h5 class="card-title"><i class="bi bi-speedometer2"></i> ECMO Risk Assessment</h5>
+                        <div id="risk-assessment">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-3 text-muted">Analyzing patient data...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="col-lg-8 mb-4">
+                <div class="row">
+                    <div class="col-md-6 col-lg-3 mb-3">
+                        <div class="metric-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                            <div class="metric-label">Heart Rate</div>
+                            <div class="metric-value" id="hr-value">--</div>
+                            <div class="metric-unit">bpm</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 mb-3">
+                        <div class="metric-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <div class="metric-label">Lactate</div>
+                            <div class="metric-value" id="lactate-value">--</div>
+                            <div class="metric-unit">mmol/L</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 mb-3">
+                        <div class="metric-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                            <div class="metric-label">MAP</div>
+                            <div class="metric-value" id="map-value">--</div>
+                            <div class="metric-unit">mmHg</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-3 mb-3">
+                        <div class="metric-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
+                            <div class="metric-label">rSO2 (Cerebral)</div>
+                            <div class="metric-value" id="rso2-value">--</div>
+                            <div class="metric-unit">%</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabbed Content -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                            <li class="nav-item">
+                                <a class="nav-link active" data-bs-toggle="tab" href="#vitals-tab">
+                                    <i class="bi bi-activity"></i> Vitals & Labs
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#nirs-tab">
+                                    <i class="bi bi-graph-up"></i> NIRS Monitoring
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#procedures-tab">
+                                    <i class="bi bi-clipboard2-pulse"></i> Procedures
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#conditions-tab">
+                                    <i class="bi bi-file-medical"></i> Conditions
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" data-bs-toggle="tab" href="#features-tab">
+                                    <i class="bi bi-list-check"></i> Model Features
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="tab-content">
+                        <div class="tab-pane fade show active" id="vitals-tab">
+                            <div id="clinical-data">
+                                <div class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                    <p class="mt-3 text-muted">Loading clinical data...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="nirs-tab">
+                            <div id="nirs-data">
+                                <canvas id="nirsChart" height="80"></canvas>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="procedures-tab">
+                            <div id="procedures-data">
+                                <div class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                    <p class="mt-3 text-muted">Loading procedures...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="conditions-tab">
+                            <div id="conditions-data">
+                                <div class="text-center py-5">
+                                    <div class="spinner-border text-primary" role="status"></div>
+                                    <p class="mt-3 text-muted">Loading conditions...</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tab-pane fade" id="features-tab">
+                            <div id="features-data">
+                                <p class="text-muted">Model features will be displayed after risk calculation</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let nirsChart = null;
+
+        // Fetch patient data from FHIR server
+        async function loadPatientData() {
+            try {
+                const response = await fetch('/api/patient-data');
+                if (!response.ok) throw new Error('Failed to fetch patient data');
+                const data = await response.json();
+
+                // Display patient demographics
+                displayPatientInfo(data.patient);
+
+                // Display clinical data
+                displayClinicalData(data.observations);
+                displayProcedures(data.procedures);
+                displayConditions(data.conditions);
+
+                // Fetch and display risk assessment
+                await loadRiskAssessment();
+
+            } catch (error) {
+                console.error('Error loading patient data:', error);
+                showError('risk-assessment', 'Error loading patient data. Please refresh the page.');
+            }
+        }
+
+        function displayPatientInfo(patient) {
+            if (!patient || patient.resourceType !== 'Patient') return;
+
+            const name = patient.name?.[0];
+            const fullName = name ? `${name.given?.join(' ') || ''} ${name.family || ''}`.trim() : 'Unknown';
+            const birthDate = patient.birthDate;
+            const age = birthDate ? calculateAge(birthDate) : '--';
+            const mrn = patient.identifier?.find(id => id.type?.coding?.[0]?.code === 'MR')?.value || '--';
+
+            document.getElementById('patient-name').textContent = fullName;
+            document.getElementById('patient-age').textContent = `${age} years`;
+            document.getElementById('patient-mrn').textContent = mrn;
+        }
+
+        function calculateAge(birthDate) {
+            const birth = new Date(birthDate);
+            const today = new Date();
+            let age = today.getFullYear() - birth.getFullYear();
+            const monthDiff = today.getMonth() - birth.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+                age--;
+            }
+            return age;
+        }
+
+        function displayClinicalData(observations) {
+            if (!observations || !observations.entry) {
+                document.getElementById('clinical-data').innerHTML = '<p class="text-muted">No observations found</p>';
+                return;
+            }
+
+            const obs = observations.entry.map(e => e.resource);
+            const vitals = {};
+
+            // Parse observations
+            obs.forEach(o => {
+                const code = o.code?.coding?.[0]?.code;
+                const value = o.valueQuantity?.value;
+                const unit = o.valueQuantity?.unit || '';
+
+                if (code && value !== undefined) {
+                    vitals[code] = { value, unit, display: o.code.text || o.code.coding[0].display };
+                }
+            });
+
+            // Update quick stats
+            if (vitals['8867-4']) document.getElementById('hr-value').textContent = Math.round(vitals['8867-4'].value);
+            if (vitals['2524-7']) document.getElementById('lactate-value').textContent = vitals['2524-7'].value.toFixed(1);
+            if (vitals['59452-7']) document.getElementById('rso2-value').textContent = Math.round(vitals['59452-7'].value);
+
+            // Calculate MAP if we have SBP and DBP
+            if (vitals['8480-6'] && vitals['8462-4']) {
+                const map = Math.round((vitals['8480-6'].value + 2 * vitals['8462-4'].value) / 3);
+                document.getElementById('map-value').textContent = map;
+            }
+
+            // Display all vitals in table
+            let html = '<div class="table-responsive"><table class="table table-hover">';
+            html += '<thead><tr><th>Parameter</th><th>Value</th><th>Unit</th></tr></thead><tbody>';
+
+            Object.entries(vitals).forEach(([code, data]) => {
+                html += `<tr><td>${data.display}</td><td><strong>${data.value}</strong></td><td>${data.unit}</td></tr>`;
+            });
+
+            html += '</tbody></table></div>';
+            document.getElementById('clinical-data').innerHTML = html;
+
+            // Display NIRS chart
+            displayNIRSChart(obs);
+        }
+
+        function displayNIRSChart(observations) {
+            const nirsObs = observations.filter(o =>
+                o.code?.coding?.[0]?.code === '59452-7' || o.code?.coding?.[0]?.code === '59453-5'
+            );
+
+            if (nirsObs.length === 0) {
+                document.getElementById('nirs-data').innerHTML = '<p class="text-muted p-3">No NIRS data available</p>';
+                return;
+            }
+
+            const cerebralData = [];
+            const somaticData = [];
+            const labels = [];
+
+            nirsObs.forEach(o => {
+                const date = new Date(o.effectiveDateTime || o.issued);
+                const value = o.valueQuantity?.value;
+                const code = o.code?.coding?.[0]?.code;
+
+                if (code === '59452-7') {
+                    cerebralData.push({ x: date, y: value });
+                } else if (code === '59453-5') {
+                    somaticData.push({ x: date, y: value });
+                }
+            });
+
+            // Sort by date
+            cerebralData.sort((a, b) => a.x - b.x);
+            somaticData.sort((a, b) => a.x - b.x);
+
+            const ctx = document.getElementById('nirsChart');
+            if (nirsChart) nirsChart.destroy();
+
+            nirsChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Cerebral rSO2 (%)',
+                        data: cerebralData,
+                        borderColor: '#667eea',
+                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                        tension: 0.4
+                    }, {
+                        label: 'Somatic rSO2 (%)',
+                        data: somaticData,
+                        borderColor: '#f5576c',
+                        backgroundColor: 'rgba(245, 87, 108, 0.1)',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: { type: 'time', time: { unit: 'hour' } },
+                        y: { min: 0, max: 100, title: { display: true, text: 'rSO2 (%)' } }
+                    }
+                }
+            });
+        }
+
+        function displayProcedures(procedures) {
+            if (!procedures || !procedures.entry || procedures.entry.length === 0) {
+                document.getElementById('procedures-data').innerHTML = '<p class="text-muted">No procedures recorded</p>';
+                return;
+            }
+
+            let html = '<div class="timeline">';
+            procedures.entry.forEach(entry => {
+                const proc = entry.resource;
+                const code = proc.code?.coding?.[0];
+                const date = proc.performedDateTime || proc.performedPeriod?.start || 'Unknown date';
+
+                html += `<div class="timeline-item">
+                    <strong>${code?.display || proc.code?.text || 'Unknown procedure'}</strong>
+                    <br><small class="text-muted">${new Date(date).toLocaleString()}</small>
+                    <br><span class="status-badge bg-info text-white">${proc.status || 'unknown'}</span>
+                </div>`;
+            });
+            html += '</div>';
+
+            document.getElementById('procedures-data').innerHTML = html;
+        }
+
+        function displayConditions(conditions) {
+            if (!conditions || !conditions.entry || conditions.entry.length === 0) {
+                document.getElementById('conditions-data').innerHTML = '<p class="text-muted">No conditions recorded</p>';
+                return;
+            }
+
+            let html = '<div class="list-group">';
+            conditions.entry.forEach(entry => {
+                const cond = entry.resource;
+                const code = cond.code?.coding?.[0];
+                const status = cond.clinicalStatus?.coding?.[0]?.code || 'unknown';
+                const statusClass = status === 'active' ? 'danger' : 'secondary';
+
+                html += `<div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong>${code?.display || cond.code?.text || 'Unknown condition'}</strong>
+                        <span class="status-badge bg-${statusClass} text-white">${status}</span>
+                    </div>
+                    ${cond.onsetDateTime ? `<small class="text-muted">Onset: ${new Date(cond.onsetDateTime).toLocaleDateString()}</small>` : ''}
+                </div>`;
+            });
+            html += '</div>';
+
+            document.getElementById('conditions-data').innerHTML = html;
+        }
+
+        async function loadRiskAssessment() {
+            try {
+                const response = await fetch('/api/ecmo-risk');
+                const data = await response.json();
+
+                if (data.error) {
+                    showRiskScore('--', 'medium', data.message || 'Risk assessment unavailable');
+                    return;
+                }
+
+                // Display risk score
+                const probability = data.survival_probability || 0.5;
+                const riskLevel = probability >= 0.7 ? 'low' : probability >= 0.4 ? 'medium' : 'high';
+                const percentage = (probability * 100).toFixed(0);
+
+                showRiskScore(percentage + '%', riskLevel, `Predicted survival probability`);
+
+                // Display features
+                if (data.features) {
+                    displayFeatures(data.features, data.feature_importance);
+                }
+
+            } catch (error) {
+                console.error('Error loading risk assessment:', error);
+                showRiskScore('--', 'medium', 'Risk assessment service unavailable');
+            }
+        }
+
+        function showRiskScore(score, level, description) {
+            const html = `
+                <div class="risk-score risk-${level}">${score}</div>
+                <p class="text-muted">${description}</p>
+                <div class="progress progress-custom mt-3">
+                    <div class="progress-bar bg-${level === 'low' ? 'success' : level === 'medium' ? 'warning' : 'danger'}"
+                         style="width: ${score}"></div>
+                </div>
+            `;
+            document.getElementById('risk-assessment').innerHTML = html;
+        }
+
+        function displayFeatures(features, importance) {
+            let html = '<h6 class="mb-3">Key Clinical Features</h6>';
+
+            if (importance && importance.length > 0) {
+                html += '<div class="list-group">';
+                importance.slice(0, 10).forEach(item => {
+                    const value = features[item.feature] !== undefined ? features[item.feature] : '--';
+                    const importanceBar = Math.round(item.importance * 100);
+                    html += `<div class="list-group-item">
+                        <div class="feature-item">
+                            <span><strong>${item.feature}</strong></span>
+                            <span>${value}</span>
+                        </div>
+                        <div class="progress progress-custom mt-2">
+                            <div class="progress-bar" style="width: ${importanceBar}%"></div>
+                        </div>
+                        <small class="text-muted">Importance: ${(item.importance * 100).toFixed(1)}%</small>
+                    </div>`;
+                });
+                html += '</div>';
+            } else {
+                html += '<div class="table-responsive"><table class="table table-sm">';
+                Object.entries(features).forEach(([key, value]) => {
+                    html += `<tr><td>${key}</td><td><strong>${value}</strong></td></tr>`;
+                });
+                html += '</table></div>';
+            }
+
+            document.getElementById('features-data').innerHTML = html;
+        }
+
+        function showError(elementId, message) {
+            document.getElementById(elementId).innerHTML =
+                `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle-fill"></i> ${message}</div>`;
+        }
+
+        // Load data on page load
+        window.addEventListener('load', loadPatientData);
+    </script>
+</body>
+</html>

@@ -1,0 +1,314 @@
+# ECMO Complications Coding
+# Aligned with ELSO Registry v5.x
+# Coding: ICD-10-CM, SNOMED CT
+
+# Mechanical Complications
+mechanical:
+  oxygenator_failure:
+    elso_code: "MECH-01"
+    description: "Oxygenator failure requiring replacement"
+    icd10:
+      - T82.511A  # Breakdown of surgically created arteriovenous shunt
+      - T82.518A  # Breakdown of other cardiac and vascular devices
+    snomed: 710972008  # Failure of oxygenation
+
+  circuit_clotting:
+    elso_code: "MECH-02"
+    description: "Circuit clotting/thrombosis"
+    icd10:
+      - T82.868A  # Thrombosis of vascular prosthetic devices
+    snomed: 439127006  # Thrombosis
+
+  pump_malfunction:
+    elso_code: "MECH-03"
+    description: "Pump malfunction"
+    icd10:
+      - T82.518A  # Breakdown of other cardiac and vascular devices
+    snomed: 710975005  # Mechanical complication of device
+
+  air_embolism:
+    elso_code: "MECH-04"
+    description: "Air embolism"
+    icd10:
+      - T79.0XXA  # Air embolism (traumatic)
+    snomed: 426437006  # Air embolism
+
+  cannula_problem:
+    elso_code: "MECH-05"
+    description: "Cannula malposition/dislodgement/occlusion"
+    icd10:
+      - T82.528A  # Displacement of other cardiac and vascular devices
+    snomed: 276720006  # Device malposition
+
+  tubing_rupture:
+    elso_code: "MECH-06"
+    description: "Circuit/tubing rupture"
+    icd10:
+      - T82.518A  # Breakdown of cardiac device
+    snomed: 710975005  # Mechanical complication
+
+# Hemorrhagic Complications
+hemorrhage:
+  major_bleeding:
+    elso_code: "HEM-01"
+    description: "Major hemorrhage requiring intervention"
+    icd10:
+      - R58     # Hemorrhage, not elsewhere classified
+    snomed: 131148009  # Bleeding
+
+  cannula_site_bleeding:
+    elso_code: "HEM-02"
+    description: "Cannulation site bleeding"
+    icd10:
+      - T81.0XXA  # Hemorrhage complicating a procedure
+    snomed: 131148009  # Bleeding
+
+  surgical_site_bleeding:
+    elso_code: "HEM-03"
+    description: "Surgical site hemorrhage"
+    icd10:
+      - I97.51   # Accidental puncture during procedure
+      - T81.0XXA # Hemorrhage complicating procedure
+    snomed: 131148009  # Bleeding
+
+  gi_hemorrhage:
+    elso_code: "HEM-04"
+    description: "Gastrointestinal hemorrhage"
+    icd10:
+      - K92.2   # Gastrointestinal hemorrhage, unspecified
+    snomed: 74474003  # GI hemorrhage
+
+  pulmonary_hemorrhage:
+    elso_code: "HEM-05"
+    description: "Pulmonary hemorrhage"
+    icd10:
+      - R04.89  # Hemorrhage from respiratory passages
+    snomed: 427063009  # Pulmonary hemorrhage
+
+  cns_hemorrhage:
+    elso_code: "HEM-06"
+    description: "CNS hemorrhage (intracranial/intraspinal)"
+    icd10:
+      - I62.9   # Intracranial hemorrhage, unspecified
+      - I61.9   # Intracerebral hemorrhage, unspecified
+    snomed: 274100004  # Cerebral hemorrhage
+
+  cardiac_tamponade:
+    elso_code: "HEM-07"
+    description: "Cardiac tamponade"
+    icd10:
+      - I31.4   # Cardiac tamponade
+    snomed: 35304003  # Cardiac tamponade
+
+  hemothorax:
+    elso_code: "HEM-08"
+    description: "Hemothorax"
+    icd10:
+      - J94.2   # Hemothorax
+    snomed: 48162001  # Hemothorax
+
+  retroperitoneal_bleeding:
+    elso_code: "HEM-09"
+    description: "Retroperitoneal hemorrhage"
+    icd10:
+      - K66.1   # Hemoperitoneum
+    snomed: 95562007  # Retroperitoneal hemorrhage
+
+# Neurological Complications
+neurological:
+  ischemic_stroke:
+    elso_code: "NEURO-01"
+    description: "Ischemic stroke/cerebral infarction"
+    icd10:
+      - I63.9   # Cerebral infarction, unspecified
+    snomed: 422504002  # Ischemic stroke
+
+  hemorrhagic_stroke:
+    elso_code: "NEURO-02"
+    description: "Hemorrhagic stroke"
+    icd10:
+      - I61.9   # Intracerebral hemorrhage, unspecified
+    snomed: 230690007  # Hemorrhagic stroke
+
+  seizures:
+    elso_code: "NEURO-03"
+    description: "Seizures during ECMO"
+    icd10:
+      - R56.9   # Unspecified convulsions
+      - G40.9   # Epilepsy, unspecified
+    snomed: 91175000  # Seizure
+
+  brain_death:
+    elso_code: "NEURO-04"
+    description: "Brain death"
+    icd10:
+      - G93.82  # Brain death
+    snomed: 230809004  # Brain death
+
+  hypoxic_ischemic_encephalopathy:
+    elso_code: "NEURO-05"
+    description: "Hypoxic-ischemic brain injury"
+    icd10:
+      - G93.1   # Anoxic brain damage
+    snomed: 386806002  # Hypoxic-ischemic encephalopathy
+
+# Cardiovascular Complications
+cardiovascular:
+  myocardial_infarction:
+    elso_code: "CV-01"
+    description: "Myocardial infarction during ECMO"
+    icd10:
+      - I21.4   # Non-ST elevation MI
+    snomed: 57054005  # Acute MI
+
+  arrhythmia:
+    elso_code: "CV-02"
+    description: "Significant arrhythmia"
+    icd10:
+      - I49.9   # Cardiac arrhythmia, unspecified
+      - I47.2   # Ventricular tachycardia
+      - I49.01  # Ventricular fibrillation
+    snomed: 698247007  # Cardiac arrhythmia
+
+  cardiac_arrest_on_ecmo:
+    elso_code: "CV-03"
+    description: "Cardiac arrest while on ECMO"
+    icd10:
+      - I46.9   # Cardiac arrest, unspecified
+    snomed: 410429000  # Cardiac arrest
+
+  limb_ischemia:
+    elso_code: "CV-04"
+    description: "Limb ischemia (from cannulation)"
+    icd10:
+      - I74.3   # Embolism and thrombosis of arteries of lower extremities
+      - I74.2   # Embolism of arteries of upper extremities
+    snomed: 225563009  # Ischemia of limb
+
+  compartment_syndrome:
+    elso_code: "CV-05"
+    description: "Compartment syndrome"
+    icd10:
+      - T79.A0XA # Compartment syndrome, unspecified
+    snomed: 75347008  # Compartment syndrome
+
+  vascular_injury:
+    elso_code: "CV-06"
+    description: "Vascular injury/dissection"
+    icd10:
+      - I77.70  # Dissection of unspecified artery
+    snomed: 410672004  # Vascular injury
+
+# Renal Complications
+renal:
+  acute_kidney_injury:
+    elso_code: "RENAL-01"
+    description: "Acute kidney injury"
+    icd10:
+      - N17.9   # Acute kidney failure, unspecified
+    snomed: 14669001  # Acute kidney injury
+
+  crrt_requirement:
+    elso_code: "RENAL-02"
+    description: "Continuous renal replacement therapy required"
+    icd10:
+      - 5A1D60Z  # CRRT procedure code (ICD-10-PCS)
+    snomed: 714749008  # Continuous renal replacement therapy
+
+# Infectious Complications
+infectious:
+  sepsis:
+    elso_code: "INF-01"
+    description: "Sepsis during ECMO"
+    icd10:
+      - A41.9   # Sepsis, unspecified
+      - R65.21  # Severe sepsis with septic shock
+    snomed: 91302008  # Sepsis
+
+  pneumonia:
+    elso_code: "INF-02"
+    description: "Pneumonia"
+    icd10:
+      - J18.9   # Pneumonia, unspecified
+    snomed: 233604007  # Pneumonia
+
+  bloodstream_infection:
+    elso_code: "INF-03"
+    description: "Catheter-related bloodstream infection"
+    icd10:
+      - T80.211A # Bloodstream infection due to central venous catheter
+    snomed: 722446008  # Catheter-related bloodstream infection
+
+  cannula_site_infection:
+    elso_code: "INF-04"
+    description: "Cannulation site infection"
+    icd10:
+      - T82.7XXA  # Infection of cardiac and vascular prosthetic devices
+    snomed: 722448009  # Infection of vascular device
+
+  vap:
+    elso_code: "INF-05"
+    description: "Ventilator-associated pneumonia"
+    icd10:
+      - J95.851   # Ventilator-associated pneumonia
+    snomed: 448877004  # Ventilator-associated pneumonia
+
+# Metabolic/Hematologic Complications
+metabolic:
+  hemolysis:
+    elso_code: "MET-01"
+    description: "Clinically significant hemolysis"
+    icd10:
+      - D59.4   # Other nonautoimmune hemolytic anemias
+    snomed: 11218009  # Hemolysis
+
+  dic:
+    elso_code: "MET-02"
+    description: "Disseminated intravascular coagulation"
+    icd10:
+      - D65     # Disseminated intravascular coagulation
+    snomed: 67406007  # DIC
+
+  hit:
+    elso_code: "MET-03"
+    description: "Heparin-induced thrombocytopenia"
+    icd10:
+      - D75.82  # Heparin-induced thrombocytopenia
+    snomed: 438329008  # HIT
+
+  hyperbilirubinemia:
+    elso_code: "MET-04"
+    description: "Severe hyperbilirubinemia"
+    icd10:
+      - E80.6   # Other disorders of bilirubin metabolism
+    snomed: 18165001  # Hyperbilirubinemia
+
+  metabolic_acidosis:
+    elso_code: "MET-05"
+    description: "Severe metabolic acidosis"
+    icd10:
+      - E87.2   # Acidosis
+    snomed: 59455009  # Metabolic acidosis
+
+  hyperglycemia:
+    elso_code: "MET-06"
+    description: "Severe hyperglycemia"
+    icd10:
+      - R73.9   # Hyperglycemia, unspecified
+    snomed: 80394007  # Hyperglycemia
+
+# Other Complications
+other:
+  hepatic_dysfunction:
+    elso_code: "OTHER-01"
+    description: "Hepatic dysfunction"
+    icd10:
+      - K72.00  # Acute hepatic failure
+    snomed: 235881001  # Hepatic failure
+
+  multi_organ_failure:
+    elso_code: "OTHER-02"
+    description: "Multiple organ dysfunction syndrome"
+    icd10:
+      - R65.11  # SIRS of non-infectious origin without acute organ dysfunction
+    snomed: 57653000  # Multi-organ failure

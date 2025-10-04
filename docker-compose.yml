@@ -1,0 +1,199 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (MIMIC-IV)
+  postgres:
+    image: postgres:13-alpine
+    container_name: ecmo-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-mimic4}
+      POSTGRES_USER: ${DB_USER:-ecmo_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+      - ./data/mimic4:/mimic4_data:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    networks:
+      - ecmo-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-ecmo_admin} -d ${DB_NAME:-mimic4}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    shm_size: 256MB
+    command: >
+      postgres
+      -c shared_buffers=1GB
+      -c effective_cache_size=3GB
+      -c maintenance_work_mem=256MB
+      -c work_mem=32MB
+      -c max_connections=100
+      -c log_min_duration_statement=1000
+
+  # Streamlit Dashboard (WP2 - Cost-Effectiveness)
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dashboard
+    container_name: ecmo-dashboard
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-mimic4}
+      - DB_USER=${DB_USER:-ecmo_admin}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - NHI_ICU_COST_PER_DAY=${NHI_ICU_COST_PER_DAY:-30000}
+      - NHI_WARD_COST_PER_DAY=${NHI_WARD_COST_PER_DAY:-8000}
+      - NHI_ECMO_DAILY_CONSUMABLE=${NHI_ECMO_DAILY_CONSUMABLE:-15000}
+      - NHI_ECMO_SETUP_COST=${NHI_ECMO_SETUP_COST:-100000}
+    volumes:
+      - ./econ:/app/econ:ro
+      - ./data:/app/data:ro
+      - ./models:/app/models:ro
+      - dashboard_exports:/app/exports
+    ports:
+      - "${DASHBOARD_PORT:-8501}:8501"
+    networks:
+      - ecmo-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    command: streamlit run /app/econ/dashboard.py
+
+  # SMART on FHIR Application (WP4)
+  smart-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: smart-app
+    container_name: ecmo-smart-app
+    environment:
+      - FLASK_APP=app.py
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY:-change_this_secret_key}
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=${DB_NAME:-mimic4}
+      - DB_USER=${DB_USER:-ecmo_admin}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      - FHIR_BASE_URL=${FHIR_BASE_URL:-https://launch.smarthealthit.org/v/r4/fhir}
+      - SMART_CLIENT_ID=${SMART_CLIENT_ID:-}
+      - SMART_CLIENT_SECRET=${SMART_CLIENT_SECRET:-}
+      - SMART_REDIRECT_URI=${SMART_REDIRECT_URI:-http://localhost:5000/callback}
+      - MODEL_DIR=/app/models
+    volumes:
+      - ./smart-on-fhir:/app/smart-on-fhir:ro
+      - ./nirs:/app/nirs:ro
+      - ./models:/app/models:ro
+      - smart_logs:/app/logs
+    ports:
+      - "${SMART_PORT:-5000}:5000"
+    networks:
+      - ecmo-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    command: >
+      gunicorn
+      --bind 0.0.0.0:5000
+      --workers 4
+      --threads 2
+      --timeout 120
+      --access-logfile /app/logs/access.log
+      --error-logfile /app/logs/error.log
+      --log-level info
+      --chdir /app/smart-on-fhir
+      app:app
+
+  # Nginx Reverse Proxy
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: ecmo-nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - nginx_cache:/var/cache/nginx
+      - nginx_logs:/var/log/nginx
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    networks:
+      - ecmo-network
+    depends_on:
+      - dashboard
+      - smart-app
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # Redis Cache (Optional - for production scaling)
+  redis:
+    image: redis:7-alpine
+    container_name: ecmo-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    networks:
+      - ecmo-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+    driver: local
+  dashboard_exports:
+    driver: local
+  smart_logs:
+    driver: local
+  nginx_cache:
+    driver: local
+  nginx_logs:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  ecmo-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

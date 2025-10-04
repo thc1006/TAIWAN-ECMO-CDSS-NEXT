@@ -1,136 +1,222 @@
-# ECMO Indication Diagnoses
-# ICD-10-CM codes for conditions leading to ECMO support
-
-version: "1.0"
-description: "Diagnosis codes for ECMO indications"
-last_updated: "2024-01-01"
+# ECMO Primary Diagnoses and Indications
+# Aligned with ELSO Registry v5.x Categories
+# Coding: ICD-10-CM, SNOMED CT
 
 # Cardiac Indications
-cardiac_indications:
+cardiac:
+  cardiac_arrest:
+    elso_code: "CARD-01"
+    description: "Cardiac arrest"
+    icd10:
+      - I46.9  # Cardiac arrest, unspecified
+      - I46.2  # Cardiac arrest due to underlying cardiac condition
+      - I46.8  # Cardiac arrest due to other underlying condition
+    snomed: 410429000  # Cardiac arrest
+
   cardiogenic_shock:
-    - code: "R57.0"
-      description: "Cardiogenic shock"
-    - code: "I46.9"
-      description: "Cardiac arrest, unspecified"
-    - code: "I50.9"
-      description: "Heart failure, unspecified"
-  
+    elso_code: "CARD-02"
+    description: "Cardiogenic shock"
+    icd10:
+      - R57.0  # Cardiogenic shock
+    snomed: 89138009  # Cardiogenic shock
+
+  acute_mi:
+    elso_code: "CARD-03"
+    description: "Acute myocardial infarction"
+    icd10:
+      - I21.0  # ST elevation myocardial infarction of anterior wall
+      - I21.1  # ST elevation myocardial infarction of inferior wall
+      - I21.2  # ST elevation myocardial infarction of other sites
+      - I21.3  # ST elevation myocardial infarction of unspecified site
+      - I21.4  # Non-ST elevation myocardial infarction
+      - I21.9  # Acute myocardial infarction, unspecified
+    snomed: 57054005  # Acute myocardial infarction
+
+  myocarditis:
+    elso_code: "CARD-04"
+    description: "Myocarditis"
+    icd10:
+      - I40.0  # Infective myocarditis
+      - I40.1  # Isolated myocarditis
+      - I40.8  # Other acute myocarditis
+      - I40.9  # Acute myocarditis, unspecified
+      - I51.4  # Myocarditis, unspecified
+    snomed: 50920009  # Myocarditis
+
+  cardiac_failure:
+    elso_code: "CARD-05"
+    description: "Acute cardiac failure"
+    icd10:
+      - I50.1  # Left ventricular failure
+      - I50.2  # Systolic heart failure
+      - I50.3  # Diastolic heart failure
+      - I50.4  # Combined systolic and diastolic heart failure
+      - I50.9  # Heart failure, unspecified
+    snomed: 84114007  # Heart failure
+
   post_cardiotomy:
-    - code: "I97.190"
-      description: "Other postprocedural cardiac functional disturbances following cardiac surgery"
-    - code: "I97.131"
-      description: "Postprocedural heart failure following cardiac surgery"
-  
-  acute_myocardial_infarction:
-    - code: "I21.9"
-      description: "Acute myocardial infarction, unspecified"
-    - code: "I21.02"
-      description: "ST elevation (STEMI) myocardial infarction involving left anterior descending coronary artery"
-    - code: "I21.11"
-      description: "ST elevation (STEMI) myocardial infarction involving right coronary artery"
-  
-  congenital_heart_disease:
-    - code: "Q20.9"
-      description: "Congenital malformation of cardiac chambers and connections, unspecified"
-    - code: "Q21.3"
-      description: "Tetralogy of Fallot"
-    - code: "Q23.4"
-      description: "Hypoplastic left heart syndrome"
+    elso_code: "CARD-06"
+    description: "Post-cardiotomy syndrome"
+    icd10:
+      - I97.130  # Postprocedural heart failure following cardiac surgery
+      - I97.190  # Other postprocedural cardiac functional disturbances
+    snomed: 429554009  # Post-cardiotomy syndrome
 
-# Respiratory Indications  
-respiratory_indications:
-  ards:
-    - code: "J80"
-      description: "Acute respiratory distress syndrome"
-    - code: "J95.1"
-      description: "Acute pulmonary insufficiency following thoracic surgery"
-    - code: "J95.2"
-      description: "Acute pulmonary insufficiency following nonthoracic surgery"
-  
-  pneumonia:
-    - code: "J44.0"
-      description: "Chronic obstructive pulmonary disease with acute lower respiratory infection"
-    - code: "J18.9"
-      description: "Pneumonia, unspecified organism"
-    - code: "J12.9"
-      description: "Viral pneumonia, unspecified"
-  
   pulmonary_embolism:
-    - code: "I26.90"
-      description: "Septic pulmonary embolism without acute cor pulmonale"
-    - code: "I26.99"
-      description: "Other pulmonary embolism without acute cor pulmonale"
-  
-  bridge_to_transplant:
-    - code: "Z94.2"
-      description: "Lung transplant status"
-    - code: "Z94.1"
-      description: "Heart transplant status"
+    elso_code: "CARD-07"
+    description: "Massive pulmonary embolism"
+    icd10:
+      - I26.0  # Pulmonary embolism with mention of acute cor pulmonale
+      - I26.9  # Pulmonary embolism without acute cor pulmonale
+    snomed: 59282003  # Pulmonary embolism
 
-# Neonatal/Pediatric Indications
-neonatal_indications:
-  meconium_aspiration:
-    - code: "P24.00"
-      description: "Meconium aspiration without respiratory symptoms"
-    - code: "P24.01"
-      description: "Meconium aspiration with respiratory symptoms"
-  
-  congenital_diaphragmatic_hernia:
-    - code: "Q79.0"
-      description: "Congenital diaphragmatic hernia"
-  
-  persistent_pulmonary_hypertension:
-    - code: "P29.30"
-      description: "Pulmonary hypertension of newborn"
-  
-  respiratory_distress_syndrome:
-    - code: "P22.0"
-      description: "Respiratory distress syndrome of newborn"
+  congenital_heart_disease:
+    elso_code: "CARD-08"
+    description: "Congenital heart disease"
+    icd10:
+      - Q24.9  # Congenital malformation of heart, unspecified
+      - Q25.0  # Patent ductus arteriosus
+      - Q21.0  # Ventricular septal defect
+      - Q21.1  # Atrial septal defect
+    snomed: 13213009  # Congenital heart disease
 
-# Trauma/Emergency Indications
-trauma_indications:
-  multiple_trauma:
-    - code: "T07"
-      description: "Unspecified multiple injuries"
-    - code: "S27.0XXA"
-      description: "Traumatic pneumothorax, initial encounter"
-  
-  drowning:
-    - code: "T75.1XXA"
-      description: "Unspecified effects of drowning and nonfatal submersion, initial encounter"
-  
-  smoke_inhalation:
-    - code: "T59.811A"
-      description: "Toxic effect of smoke, accidental (unintentional), initial encounter"
+# Respiratory Indications
+respiratory:
+  ards:
+    elso_code: "RESP-01"
+    description: "Acute respiratory distress syndrome"
+    icd10:
+      - J80    # Acute respiratory distress syndrome
+    snomed: 67782005  # Acute respiratory distress syndrome
 
-# Sepsis/Infection
-sepsis_indications:
+  pneumonia:
+    elso_code: "RESP-02"
+    description: "Severe pneumonia"
+    icd10:
+      - J12.9  # Viral pneumonia, unspecified
+      - J13    # Pneumonia due to Streptococcus pneumoniae
+      - J14    # Pneumonia due to Haemophilus influenzae
+      - J15.9  # Unspecified bacterial pneumonia
+      - J18.9  # Pneumonia, unspecified organism
+    snomed: 233604007  # Pneumonia
+
+  aspiration_pneumonia:
+    elso_code: "RESP-03"
+    description: "Aspiration pneumonia"
+    icd10:
+      - J69.0  # Pneumonitis due to inhalation of food and vomit
+    snomed: 206541001  # Aspiration pneumonia
+
+  status_asthmaticus:
+    elso_code: "RESP-04"
+    description: "Status asthmaticus"
+    icd10:
+      - J46    # Status asthmaticus
+    snomed: 55517008  # Status asthmaticus
+
+  pulmonary_hemorrhage:
+    elso_code: "RESP-05"
+    description: "Pulmonary hemorrhage"
+    icd10:
+      - R04.89  # Hemorrhage from other sites in respiratory passages
+    snomed: 427063009  # Pulmonary hemorrhage
+
+  pulmonary_hypertension:
+    elso_code: "RESP-06"
+    description: "Severe pulmonary hypertension"
+    icd10:
+      - I27.0  # Primary pulmonary hypertension
+      - I27.2  # Other secondary pulmonary hypertension
+    snomed: 70995007  # Pulmonary hypertension
+
+  air_leak_syndrome:
+    elso_code: "RESP-07"
+    description: "Air leak syndrome"
+    icd10:
+      - J93.0  # Spontaneous tension pneumothorax
+      - J93.1  # Other spontaneous pneumothorax
+    snomed: 36118008  # Pneumothorax
+
+  covid19_ards:
+    elso_code: "RESP-08"
+    description: "COVID-19 with ARDS"
+    icd10:
+      - U07.1  # COVID-19
+      - J80    # ARDS (secondary code)
+    snomed: 840539006  # COVID-19
+
+# ECPR (Extracorporeal CPR)
+ecpr:
+  ecpr_cardiac_arrest:
+    elso_code: "ECPR-01"
+    description: "ECPR for refractory cardiac arrest"
+    icd10:
+      - I46.9  # Cardiac arrest
+    snomed: 410429000  # Cardiac arrest
+    note: "ECMO initiated during active CPR"
+
+  ecpr_post_cardiac_surgery:
+    elso_code: "ECPR-02"
+    description: "ECPR post cardiac surgery"
+    icd10:
+      - I97.130  # Postprocedural heart failure following cardiac surgery
+      - I46.2   # Cardiac arrest due to underlying cardiac condition
+    snomed: 429554009  # Post-cardiotomy syndrome
+
+# Septic Shock
+sepsis:
   septic_shock:
-    - code: "R65.21"
-      description: "Severe sepsis with septic shock"
-    - code: "A41.9"
-      description: "Sepsis, unspecified organism"
-  
-  viral_pneumonia:
-    - code: "J12.9"
-      description: "Viral pneumonia, unspecified"
-    - code: "U07.1"
-      description: "COVID-19"
+    elso_code: "SEPSIS-01"
+    description: "Septic shock"
+    icd10:
+      - R65.21  # Severe sepsis with septic shock
+      - A41.9   # Sepsis, unspecified organism
+    snomed: 76571007  # Septic shock
 
-# ELSO Primary Diagnosis Categories
-elso_categories:
-  cardiac:
-    description: "Primary cardiac failure requiring VA-ECMO"
-    typical_mode: "VA"
-    
-  respiratory:
-    description: "Primary respiratory failure requiring VV-ECMO"
-    typical_mode: "VV"
-    
-  eCPR:
-    description: "Extracorporeal cardiopulmonary resuscitation"
-    typical_mode: "VA"
-    
-  bridge_to_decision:
-    description: "Bridge to decision making"
-    typical_mode: "VA/VV"
+  necrotizing_fasciitis:
+    elso_code: "SEPSIS-02"
+    description: "Necrotizing fasciitis with septic shock"
+    icd10:
+      - M72.6  # Necrotizing fasciitis
+      - R65.21 # Severe sepsis with septic shock
+    snomed: 78290001  # Necrotizing fasciitis
+
+# Other Indications
+other:
+  hypothermia:
+    elso_code: "OTHER-01"
+    description: "Severe hypothermia"
+    icd10:
+      - T68    # Hypothermia
+    snomed: 386689009  # Hypothermia
+
+  drug_overdose:
+    elso_code: "OTHER-02"
+    description: "Drug overdose with cardiopulmonary failure"
+    icd10:
+      - T36-T50  # Poisoning by drugs
+    snomed: 55680006  # Drug overdose
+
+  bridge_to_transplant:
+    elso_code: "OTHER-03"
+    description: "Bridge to heart/lung transplant"
+    icd10:
+      - Z94.1  # Heart transplant status
+      - Z94.2  # Lung transplant status
+    snomed: 32413006  # Transplantation
+
+  post_transplant:
+    elso_code: "OTHER-04"
+    description: "Post-transplant graft failure"
+    icd10:
+      - T86.21  # Heart transplant rejection
+      - T86.810 # Lung transplant rejection
+    snomed: 213148005  # Transplant failure
+
+  trauma:
+    elso_code: "OTHER-05"
+    description: "Severe trauma with cardiopulmonary failure"
+    icd10:
+      - S27.0  # Traumatic pneumothorax
+      - S26.0  # Injury of heart with hemopericardium
+    snomed: 417746004  # Traumatic injury

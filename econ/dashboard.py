@@ -1,748 +1,359 @@
 """
-ECMO Clinical Decision Support Dashboard
-Taiwan ECMO CDSS - Streamlit Web Application
-
-Integrates risk prediction, cost-effectiveness analysis, and decision support
+ECMO Cost-Effectiveness Dashboard (WP2)
+Interactive visualization of CER, ICER, and CEAC by risk quintile
 """
 
 import streamlit as st
-import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-import sys
-import os
-
-# Add parent directories to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from nirs.risk_models import NIRSECMORiskModel, generate_demo_data
-from econ.cost_effectiveness import ECMOCostEffectivenessAnalyzer, generate_demo_economic_data
-import joblib
-import yaml
+import pandas as pd
+import matplotlib.pyplot as plt
+from cost_effectiveness import ECMOCostEffectivenessAnalysis, generate_synthetic_quintile_data
 
 # Page configuration
-st.set_page_config(
-    page_title="Taiwan ECMO CDSS",
-    page_icon="🫀",
-    layout="wide",
-    initial_sidebar_state="expanded"
+st.set_page_config(page_title="ECMO Cost-Effectiveness", layout="wide")
+st.title('ECMO Cost-Effectiveness Analysis Dashboard')
+st.markdown('**WP2: CER/ICER/CEAC by Risk Quintile | Parameterized for Local Context**')
+
+# Sidebar: Cost parameters
+st.sidebar.header('Local Cost Parameters (TWD)')
+icu_cost = st.sidebar.number_input('ICU cost per day', 10000.0, 100000.0, 30000.0, step=1000.0)
+ward_cost = st.sidebar.number_input('Ward cost per day', 1000.0, 50000.0, 8000.0, step=1000.0)
+ecmo_consumable = st.sidebar.number_input('ECMO daily consumable', 5000.0, 50000.0, 15000.0, step=1000.0)
+ecmo_setup = st.sidebar.number_input('ECMO setup cost', 50000.0, 500000.0, 100000.0, step=10000.0)
+
+st.sidebar.header('Clinical Parameters')
+qaly_gain = st.sidebar.number_input('QALY gain per survivor', 0.5, 5.0, 1.5, step=0.1)
+time_horizon = st.sidebar.number_input('Time horizon (years)', 1.0, 10.0, 1.0, step=0.5)
+discount_rate = st.sidebar.slider('Discount rate', 0.0, 0.10, 0.03, step=0.01)
+
+st.sidebar.header('Analysis Settings')
+n_patients = st.sidebar.number_input('Synthetic patient count', 100, 2000, 500, step=100)
+n_simulations = st.sidebar.number_input('CEAC simulations', 100, 5000, 1000, step=100)
+wtp_max = st.sidebar.number_input('Max WTP threshold (TWD)', 500000, 10000000, 3000000, step=100000)
+
+# Initialize analysis
+cea = ECMOCostEffectivenessAnalysis(
+    icu_cost_per_day=icu_cost,
+    ward_cost_per_day=ward_cost,
+    ecmo_daily_consumable=ecmo_consumable,
+    ecmo_setup_cost=ecmo_setup,
+    qaly_gain_per_survivor=qaly_gain,
+    time_horizon_years=time_horizon,
+    discount_rate=discount_rate,
+    currency="TWD"
 )
 
-# Custom CSS
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 3rem;
-        color: #1f77b4;
-        text-align: center;
-        margin-bottom: 2rem;
-    }
-    .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        border-left: 4px solid #1f77b4;
-    }
-    .warning-box {
-        background-color: #fff3cd;
-        border: 1px solid #ffeaa7;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-    .info-box {
-        background-color: #d1ecf1;
-        border: 1px solid #bee5eb;
-        border-radius: 0.5rem;
-        padding: 1rem;
-        margin: 1rem 0;
-    }
-</style>
-""", unsafe_allow_html=True)
+# Generate data
+with st.spinner('Generating synthetic patient data...'):
+    patient_data = generate_synthetic_quintile_data(n_patients=int(n_patients))
 
-# Helper functions
-@st.cache_data
-def load_data_dictionary():
-    """Load ELSO data dictionary"""
-    try:
-        with open('../data_dictionary.yaml', 'r') as f:
-            return yaml.safe_load(f)
-    except:
-        return None
+# Main analysis
+tab1, tab2, tab3, tab4 = st.tabs(['CER by Quintile', 'ICER Analysis', 'CEAC', 'Sensitivity Analysis'])
 
-@st.cache_data
-def generate_sample_data(n_patients=100):
-    """Generate sample data for demo"""
-    va_data = generate_demo_data(n_patients//2, 'VA')
-    vv_data = generate_demo_data(n_patients//2, 'VV')
-    return pd.concat([va_data, vv_data], ignore_index=True)
+# Tab 1: CER by Quintile
+with tab1:
+    st.header('Cost-Effectiveness Ratio (CER) by Risk Quintile')
 
-def main():
-    """Main dashboard application"""
-    
-    # Header
-    st.markdown('<h1 class="main-header">🫀 Taiwan ECMO CDSS</h1>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; color: #666;">臺灣主導的 ECMO 臨床決策支援系統</p>', unsafe_allow_html=True)
-    st.markdown('<p style="text-align: center; color: #666;">Taiwan-led ECMO Clinical Decision Support System</p>', unsafe_allow_html=True)
-    
-    # Sidebar navigation
-    st.sidebar.title("Navigation")
-    page = st.sidebar.selectbox(
-        "Choose a module:",
-        ["🏠 Home", "🔍 Risk Assessment", "💰 Cost-Effectiveness", "📊 Analytics Dashboard", "ℹ️ About"]
-    )
-    
-    # Warning box
-    st.markdown("""
-    <div class="warning-box">
-        <strong>⚠️ Clinical Decision Support Tool</strong><br>
-        This system provides <strong>explanations and insights</strong>, not prescriptive orders. 
-        All clinical decisions must be made by qualified healthcare professionals.
-        This tool exposes inputs and logic for transparency.
-    </div>
-    """, unsafe_allow_html=True)
-    
-    if page == "🏠 Home":
-        show_home()
-    elif page == "🔍 Risk Assessment":
-        show_risk_assessment()
-    elif page == "💰 Cost-Effectiveness":
-        show_cost_effectiveness()
-    elif page == "📊 Analytics Dashboard":
-        show_analytics()
-    elif page == "ℹ️ About":
-        show_about()
+    quintile_results = cea.analyze_by_quintile(patient_data)
 
-def show_home():
-    """Home page with overview"""
-    st.header("Welcome to Taiwan ECMO CDSS")
-    
-    col1, col2, col3 = st.columns(3)
-    
+    col1, col2 = st.columns([2, 1])
+
     with col1:
-        st.markdown("""
-        ### 🎯 Navigator
-        **Bedside Risk Assessment**
-        - NIRS-enhanced risk models
-        - VA/VV ECMO specific predictions  
-        - Real-time decision support
-        - ELSO-aligned data standards
-        """)
-    
+        st.subheader('Quintile Results')
+        display_df = quintile_results.copy()
+        display_df['total_cost'] = display_df['total_cost'].round(0).astype(int)
+        display_df['qaly'] = display_df['qaly'].round(3)
+        display_df['cer'] = display_df['cer'].round(0).astype(int)
+        display_df['cost_per_survivor'] = display_df['cost_per_survivor'].round(0).astype(int)
+        st.dataframe(display_df, use_container_width=True)
+
     with col2:
-        st.markdown("""
-        ### 📈 Planner  
-        **Cost & Capacity Planning**
-        - Budget impact analysis
-        - Cost-effectiveness metrics
-        - QALY calculations
-        - Resource allocation optimization
-        """)
-    
-    with col3:
-        st.markdown("""
-        ### 🥽 VR Studio
-        **Team Training**
-        - Simulation protocols
-        - Performance metrics
-        - Skill assessment
-        - Team coordination training
-        """)
-    
-    st.markdown("---")
-    
-    # Quick stats
-    st.subheader("System Overview")
-    
-    # Generate sample data for overview
-    demo_data = generate_sample_data(200)
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Total Patients", len(demo_data))
-    
-    with col2:
-        survival_rate = demo_data['survived_to_discharge'].mean()
-        st.metric("Survival Rate", f"{survival_rate:.1%}")
-    
-    with col3:
-        va_patients = len(demo_data)  # All demo patients
-        st.metric("Risk Models", "2 (VA/VV)")
-    
-    with col4:
-        st.metric("ELSO Compliance", "✅ Aligned")
-    
-    # Key features
-    st.subheader("Key Features")
-    
-    feature_data = {
-        'Feature': [
-            'NIRS Integration',
-            'Risk Stratification', 
-            'Cost Analysis',
-            'ELSO Alignment',
-            'Explainable AI',
-            'Real-time Updates'
-        ],
-        'Status': ['✅', '✅', '✅', '✅', '✅', '✅'],
-        'Description': [
-            'Near-infrared spectroscopy integration for enhanced predictions',
-            'Separate VA-ECMO and VV-ECMO risk models',  
-            'Comprehensive cost-effectiveness analysis with QALY metrics',
-            'Data dictionary aligned with ELSO registry standards',
-            'SHAP-based explanations for all predictions',
-            'Live data integration and continuous model updates'
-        ]
-    }
-    
-    st.table(pd.DataFrame(feature_data))
+        st.subheader('Key Metrics')
+        avg_cer = quintile_results['cer'].mean()
+        min_cer = quintile_results['cer'].min()
+        max_cer = quintile_results['cer'].max()
 
-def show_risk_assessment():
-    """Risk assessment module"""
-    st.header("🔍 ECMO Risk Assessment")
-    
-    # ECMO type selection
-    ecmo_type = st.selectbox("Select ECMO Type:", ["VA (Veno-Arterial)", "VV (Veno-Venous)"])
-    ecmo_mode = "VA" if "VA" in ecmo_type else "VV"
-    
-    st.markdown(f"""
-    <div class="info-box">
-        <strong>Selected Mode: {ecmo_mode}-ECMO</strong><br>
-        {'Cardiac support - for cardiogenic shock, post-cardiotomy' if ecmo_mode == 'VA' else 'Respiratory support - for severe ARDS, bridge to transplant'}
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Input form
-    with st.form("patient_assessment"):
-        st.subheader("Patient Data Input")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Demographics")
-            age = st.number_input("Age (years)", 18, 90, 55)
-            weight = st.number_input("Weight (kg)", 30, 200, 70)
-            height = st.number_input("Height (cm)", 120, 220, 170)
-            
-            st.subheader("Pre-ECMO Laboratory Values")
-            ph = st.number_input("pH", 6.8, 7.8, 7.25, step=0.01)
-            lactate = st.number_input("Lactate (mmol/L)", 0.5, 20.0, 2.0)
-            po2 = st.number_input("PO2 (mmHg)", 30, 200, 80)
-            pco2 = st.number_input("PCO2 (mmHg)", 20, 100, 45)
-        
-        with col2:
-            st.subheader("NIRS Values")
-            cerebral_so2 = st.number_input("Cerebral rSO2 (%)", 30, 90, 70)
-            renal_so2 = st.number_input("Renal rSO2 (%)", 40, 90, 75)  
-            somatic_so2 = st.number_input("Somatic rSO2 (%)", 35, 85, 70)
-            
-            st.subheader("Clinical Context")
-            if ecmo_mode == "VA":
-                cardiac_arrest = st.checkbox("Cardiac Arrest")
-                cpr_duration = st.number_input("CPR Duration (min)", 0, 120, 0)
-                lvef = st.number_input("Pre-ECMO LVEF (%)", 10, 70, 25)
-            else:
-                murray_score = st.number_input("Murray Score", 0.0, 4.0, 3.0)
-                immunocompromised = st.checkbox("Immunocompromised")
-                prone_positioning = st.checkbox("Prone Positioning Used")
-        
-        submitted = st.form_submit_button("Calculate Risk Score")
-    
-    if submitted:
-        # Create patient data
-        bmi = weight / (height/100)**2
-        
-        patient_data = {
-            'age_years': age,
-            'weight_kg': weight,
-            'height_cm': height,
-            'bmi': bmi,
-            'pre_ecmo_ph': ph,
-            'pre_ecmo_lactate': lactate,
-            'pre_ecmo_po2': po2,
-            'pre_ecmo_pco2': pco2,
-            'cerebral_so2_baseline': cerebral_so2,
-            'renal_so2_baseline': renal_so2,
-            'somatic_so2_baseline': somatic_so2,
-            'cerebral_so2_min_24h': cerebral_so2 - 5,  # Simulated
-            'renal_so2_min_24h': renal_so2 - 3,
-            'somatic_so2_min_24h': somatic_so2 - 4,
-        }
-        
-        if ecmo_mode == "VA":
-            patient_data.update({
-                'cardiac_arrest': cardiac_arrest,
-                'cpr_duration_min': cpr_duration,
-                'lvef_pre_ecmo': lvef,
-                'creatinine_pre': 1.2,  # Default values
-                'platelet_count_pre': 200,
-                'inotrope_score': 10
-            })
-        else:
-            patient_data.update({
-                'murray_score': murray_score,
-                'immunocompromised': immunocompromised,
-                'prone_positioning': prone_positioning,
-                'peep_level': 15,  # Default values
-                'plateau_pressure': 28,
-                'pre_ecmo_fio2': 1.0
-            })
-        
-        # Calculate risk using simplified model (since we can't load trained model)
-        risk_score = calculate_simplified_risk(patient_data, ecmo_mode)
-        
-        # Display results
-        st.markdown("---")
-        st.subheader("Risk Assessment Results")
-        
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            risk_color = "red" if risk_score > 0.7 else "orange" if risk_score > 0.4 else "green"
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: {risk_color};">Mortality Risk</h3>
-                <h2 style="color: {risk_color};">{risk_score:.1%}</h2>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            survival_prob = 1 - risk_score
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3 style="color: green;">Survival Probability</h3>
-                <h2 style="color: green;">{survival_prob:.1%}</h2>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col3:
-            risk_category = "High" if risk_score > 0.7 else "Moderate" if risk_score > 0.4 else "Low"
-            st.markdown(f"""
-            <div class="metric-card">
-                <h3>Risk Category</h3>
-                <h2>{risk_category}</h2>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        # Risk factors visualization
-        st.subheader("Risk Factor Analysis")
-        
-        # Create feature importance plot
-        feature_contributions = calculate_feature_contributions(patient_data, ecmo_mode)
-        
-        fig = px.bar(
-            x=list(feature_contributions.values()),
-            y=list(feature_contributions.keys()),
-            orientation='h',
-            title=f"{ecmo_mode}-ECMO Risk Factors",
-            labels={'x': 'Risk Contribution', 'y': 'Clinical Variables'}
-        )
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Recommendations
-        st.subheader("Clinical Recommendations")
-        
-        recommendations = generate_recommendations(patient_data, ecmo_mode, risk_score)
-        for rec in recommendations:
-            st.write(f"• {rec}")
-        
-        # Model explanation
-        with st.expander("Model Explanation"):
-            st.write(f"""
-            **Model Type**: {ecmo_mode}-ECMO Risk Prediction
-            
-            **Input Variables**: 
-            - Demographics: Age, weight, BMI
-            - Laboratory values: pH, lactate, blood gases
-            - NIRS measurements: Cerebral, renal, somatic rSO2
-            - Clinical context: {'Cardiac arrest, LVEF' if ecmo_mode == 'VA' else 'Murray score, immune status'}
-            
-            **Model Output**: Probability of mortality during ECMO support
-            
-            **Calibration**: Model calibrated using isotonic regression on validation dataset
-            
-            **Note**: This is a simplified demonstration model. Clinical implementation would use fully trained models with comprehensive validation.
-            """)
+        st.metric('Average CER', f'{avg_cer:,.0f} TWD/QALY')
+        st.metric('Best CER (lowest)', f'{min_cer:,.0f} TWD/QALY')
+        st.metric('Worst CER (highest)', f'{max_cer:,.0f} TWD/QALY')
 
-def calculate_simplified_risk(patient_data, ecmo_mode):
-    """Simplified risk calculation for demo"""
-    risk = 0.3  # Base risk
-    
-    # Age effect
-    if patient_data['age_years'] > 65:
-        risk += 0.2
-    elif patient_data['age_years'] > 50:
-        risk += 0.1
-    
-    # NIRS effect
-    if patient_data['cerebral_so2_baseline'] < 60:
-        risk += 0.25
-    elif patient_data['cerebral_so2_baseline'] < 70:
-        risk += 0.1
-    
-    # Laboratory values
-    if patient_data['pre_ecmo_ph'] < 7.2:
-        risk += 0.15
-    if patient_data['pre_ecmo_lactate'] > 5:
-        risk += 0.2
-    
-    # ECMO-specific factors
-    if ecmo_mode == "VA":
-        if patient_data.get('cardiac_arrest', False):
-            risk += 0.25
-        if patient_data.get('lvef_pre_ecmo', 50) < 20:
-            risk += 0.15
-    else:  # VV
-        if patient_data.get('immunocompromised', False):
-            risk += 0.15
-        if patient_data.get('murray_score', 2) > 3:
-            risk += 0.1
-    
-    return min(risk, 0.95)  # Cap at 95%
-
-def calculate_feature_contributions(patient_data, ecmo_mode):
-    """Calculate simplified feature contributions for visualization"""
-    contributions = {}
-    
-    # Age contribution
-    age_contrib = (patient_data['age_years'] - 50) * 0.005
-    contributions['Age'] = age_contrib
-    
-    # NIRS contributions
-    contributions['Cerebral rSO2'] = (70 - patient_data['cerebral_so2_baseline']) * 0.003
-    contributions['Renal rSO2'] = (75 - patient_data['renal_so2_baseline']) * 0.002
-    
-    # Lab contributions
-    contributions['pH'] = (7.35 - patient_data['pre_ecmo_ph']) * 0.5
-    contributions['Lactate'] = (patient_data['pre_ecmo_lactate'] - 2) * 0.05
-    
-    if ecmo_mode == "VA":
-        contributions['Cardiac Arrest'] = 0.15 if patient_data.get('cardiac_arrest', False) else 0
-        contributions['LVEF'] = (40 - patient_data.get('lvef_pre_ecmo', 40)) * 0.003
-    else:
-        contributions['Murray Score'] = (patient_data.get('murray_score', 2) - 2) * 0.05
-        contributions['Immunocompromised'] = 0.1 if patient_data.get('immunocompromised', False) else 0
-    
-    return contributions
-
-def generate_recommendations(patient_data, ecmo_mode, risk_score):
-    """Generate clinical recommendations based on assessment"""
-    recommendations = []
-    
-    if risk_score > 0.7:
-        recommendations.append("⚠️ High mortality risk - Consider multidisciplinary team discussion before ECMO initiation")
-    
-    if patient_data['cerebral_so2_baseline'] < 60:
-        recommendations.append("🧠 Low cerebral rSO2 - Monitor for neurologic complications, optimize perfusion")
-    
-    if patient_data['pre_ecmo_lactate'] > 5:
-        recommendations.append("🔬 Elevated lactate - Address tissue hypoperfusion, consider shock management")
-    
-    if ecmo_mode == "VA":
-        if patient_data.get('cardiac_arrest', False):
-            recommendations.append("💗 Post-arrest patient - Consider targeted temperature management, neuroprotection")
-        if patient_data.get('lvef_pre_ecmo', 50) < 20:
-            recommendations.append("💔 Severe LV dysfunction - Monitor for LV distension, consider LV venting")
-    else:
-        if patient_data.get('immunocompromised', False):
-            recommendations.append("🦠 Immunocompromised - Enhanced infection surveillance, antimicrobial prophylaxis")
-    
-    recommendations.append("📊 Continue NIRS monitoring throughout ECMO support")
-    recommendations.append("🎯 Reassess daily using updated clinical parameters")
-    
-    return recommendations
-
-def show_cost_effectiveness():
-    """Cost-effectiveness analysis module"""
-    st.header("💰 Cost-Effectiveness Analysis")
-    
-    # Analysis parameters
+    # Visualizations
     col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Analysis Parameters")
-        population_size = st.number_input("Population Size", 1000, 1000000, 100000)
-        utilization_rate = st.slider("ECMO Utilization Rate", 0.0001, 0.01, 0.001, format="%.4f")
-        time_horizon = st.slider("Time Horizon (years)", 1, 10, 5)
-        discount_rate = st.slider("Discount Rate", 0.0, 0.1, 0.03, format="%.2f")
-    
-    with col2:
-        st.subheader("Cost Parameters (USD)")
-        daily_ecmo_cost = st.number_input("Daily ECMO Cost", 1000, 10000, 3500)
-        daily_icu_cost = st.number_input("Daily ICU Cost", 500, 5000, 2500)  
-        cannulation_cost = st.number_input("Cannulation Cost", 5000, 30000, 15000)
-        
-    if st.button("Run Cost-Effectiveness Analysis"):
-        
-        # Generate demo data
-        with st.spinner("Generating analysis..."):
-            demo_data = generate_demo_economic_data(int(population_size * utilization_rate))
-            
-            # Initialize analyzer with custom parameters
-            from econ.cost_effectiveness import CostParameters, ECMOCostEffectivenessAnalyzer
-            
-            cost_params = CostParameters(
-                ecmo_daily_cost=daily_ecmo_cost,
-                icu_daily_cost=daily_icu_cost,
-                cannulation_cost=cannulation_cost
-            )
-            
-            analyzer = ECMOCostEffectivenessAnalyzer(
-                cost_params=cost_params,
-                discount_rate=discount_rate
-            )
-            
-            # Calculate costs and outcomes
-            cost_data = analyzer.calculate_ecmo_costs(demo_data)
-            qaly_data = analyzer.calculate_qaly_outcomes(cost_data)
-            
-            # Budget impact
-            budget_impact = analyzer.budget_impact_analysis(
-                population_size, utilization_rate, time_horizon
-            )
-        
-        # Display results
-        st.markdown("---")
-        st.subheader("Cost-Effectiveness Results")
-        
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("Mean Cost per Patient", f"${cost_data['total_cost_usd'].mean():,.0f}")
-        
-        with col2:
-            st.metric("Mean QALYs Gained", f"{qaly_data['qalys_gained'].mean():.2f}")
-        
-        with col3:
-            cost_per_qaly = cost_data['total_cost_usd'].mean() / qaly_data['qalys_gained'].mean()
-            st.metric("Cost per QALY", f"${cost_per_qaly:,.0f}")
-        
-        with col4:
-            cost_effective = "Yes" if cost_per_qaly < 100000 else "No"
-            st.metric("Cost-Effective (<$100k/QALY)", cost_effective)
-        
-        # Budget impact visualization
-        st.subheader("Budget Impact Over Time")
-        
-        yearly_data = pd.DataFrame(budget_impact['yearly_results'])
-        
-        fig = make_subplots(
-            rows=2, cols=2,
-            subplot_titles=['Annual Costs', 'Annual QALYs', 'Cost per Case', 'Cases per Year'],
-            specs=[[{"secondary_y": False}, {"secondary_y": False}],
-                   [{"secondary_y": False}, {"secondary_y": False}]]
-        )
-        
-        fig.add_trace(
-            go.Scatter(x=yearly_data['year'], y=yearly_data['total_cost'], 
-                      name='Annual Cost', line=dict(color='red')),
-            row=1, col=1
-        )
-        
-        fig.add_trace(
-            go.Scatter(x=yearly_data['year'], y=yearly_data['total_qalys'],
-                      name='Annual QALYs', line=dict(color='green')),
-            row=1, col=2  
-        )
-        
-        fig.add_trace(
-            go.Scatter(x=yearly_data['year'], y=yearly_data['cost_per_case'],
-                      name='Cost per Case', line=dict(color='blue')),
-            row=2, col=1
-        )
-        
-        fig.add_trace(
-            go.Bar(x=yearly_data['year'], y=yearly_data['cases'],
-                   name='Annual Cases', marker_color='orange'),
-            row=2, col=2
-        )
-        
-        fig.update_layout(height=600, showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
-        
-        # Summary table
-        st.subheader("Budget Impact Summary")
-        
-        summary_df = pd.DataFrame({
-            'Metric': [
-                'Total Program Cost',
-                'Total QALYs',
-                'Annual Cases',
-                'Cost per QALY',
-                'Time Horizon'
-            ],
-            'Value': [
-                f"${budget_impact['total_program_cost']:,.0f}",
-                f"{budget_impact['total_program_qalys']:.1f}",
-                f"{budget_impact['annual_cases']:.0f}",
-                f"${budget_impact['cost_per_qaly']:,.0f}",
-                f"{budget_impact['time_horizon_years']} years"
-            ]
-        })
-        
-        st.table(summary_df)
 
-def show_analytics():
-    """Analytics dashboard"""
-    st.header("📊 ECMO Analytics Dashboard")
-    
-    # Generate sample data
-    demo_data = generate_sample_data(500)
-    
-    # Key metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
     with col1:
-        st.metric("Total Patients", len(demo_data))
-    
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.bar(quintile_results['quintile'], quintile_results['cer'], color='steelblue', alpha=0.7)
+        ax.set_xlabel('Risk Quintile')
+        ax.set_ylabel('CER (TWD/QALY)')
+        ax.set_title('Cost-Effectiveness Ratio by Quintile')
+        ax.grid(axis='y', alpha=0.3)
+        st.pyplot(fig)
+
     with col2:
-        survival_rate = demo_data['survived_to_discharge'].mean()
-        st.metric("Overall Survival", f"{survival_rate:.1%}")
-    
-    with col3:
-        mean_age = demo_data['age_years'].mean()
-        st.metric("Mean Age", f"{mean_age:.1f} years")
-    
-    with col4:
-        # VA vs VV would be determined by clinical context
-        st.metric("Risk Models", "2 (VA/VV)")
-    
-    # Survival by age groups
-    st.subheader("Survival Analysis")
-    
-    demo_data['age_group'] = pd.cut(demo_data['age_years'], 
-                                   bins=[0, 40, 60, 80, 100], 
-                                   labels=['<40', '40-60', '60-80', '80+'])
-    
-    survival_by_age = demo_data.groupby('age_group')['survived_to_discharge'].agg(['count', 'mean']).reset_index()
-    survival_by_age.columns = ['Age Group', 'Count', 'Survival Rate']
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fig1 = px.bar(survival_by_age, x='Age Group', y='Survival Rate',
-                     title='Survival Rate by Age Group')
-        fig1.update_yaxis(range=[0, 1])
-        st.plotly_chart(fig1, use_container_width=True)
-    
-    with col2:
-        fig2 = px.bar(survival_by_age, x='Age Group', y='Count',
-                     title='Patient Count by Age Group')
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # NIRS analysis
-    st.subheader("NIRS Analysis")
-    
-    nirs_cols = ['cerebral_so2_baseline', 'renal_so2_baseline', 'somatic_so2_baseline']
-    nirs_data = demo_data[nirs_cols + ['survived_to_discharge']].melt(
-        id_vars=['survived_to_discharge'], 
-        var_name='NIRS_Site', 
-        value_name='rSO2'
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.bar(quintile_results['quintile'], quintile_results['survival_rate'], color='forestgreen', alpha=0.7)
+        ax.set_xlabel('Risk Quintile')
+        ax.set_ylabel('Survival Rate')
+        ax.set_title('Survival Rate by Quintile')
+        ax.set_ylim([0, 1])
+        ax.grid(axis='y', alpha=0.3)
+        st.pyplot(fig)
+
+# Tab 2: ICER Analysis
+with tab2:
+    st.header('Incremental Cost-Effectiveness Ratio (ICER)')
+    st.markdown('**Comparison vs. Quintile 1 (Lowest Risk)**')
+
+    icer_results = cea.compute_icer_by_quintile(quintile_results, baseline_quintile=1)
+
+    # Merge with quintile results for context
+    icer_display = icer_results.merge(
+        quintile_results[['quintile', 'total_cost', 'qaly', 'survival_rate']],
+        on='quintile'
     )
-    
-    fig3 = px.box(nirs_data, x='NIRS_Site', y='rSO2', color='survived_to_discharge',
-                 title='NIRS Values by Survival Outcome')
-    st.plotly_chart(fig3, use_container_width=True)
-    
-    # Risk score distribution
-    st.subheader("Risk Score Distribution")
-    
-    # Calculate simplified risk scores
-    demo_data['risk_score'] = demo_data.apply(
-        lambda row: calculate_simplified_risk(row.to_dict(), 'VA'), axis=1
-    )
-    
-    fig4 = px.histogram(demo_data, x='risk_score', color='survived_to_discharge',
-                       title='Risk Score Distribution', nbins=20)
-    st.plotly_chart(fig4, use_container_width=True)
 
-def show_about():
-    """About page"""
-    st.header("ℹ️ About Taiwan ECMO CDSS")
-    
-    st.markdown("""
-    ## Overview
-    
-    The Taiwan ECMO Clinical Decision Support System (CDSS) is an open-source platform designed to support 
-    clinical decision-making for extracorporeal membrane oxygenation (ECMO) therapy.
-    
-    ## Key Features
-    
-    ### 🎯 Navigator (Bedside Risk Assessment)
-    - **NIRS Integration**: Near-infrared spectroscopy enhanced risk prediction
-    - **Separate Models**: VA-ECMO (cardiac) and VV-ECMO (respiratory) specific algorithms
-    - **Real-time Assessment**: Continuous risk stratification during ECMO support
-    - **Explainable AI**: SHAP-based explanations for all predictions
-    
-    ### 📈 Planner (Cost & Capacity)  
-    - **Cost-Effectiveness Analysis**: Comprehensive economic evaluation
-    - **QALY Calculations**: Quality-adjusted life years assessment
-    - **Budget Impact**: Multi-year financial projections
-    - **Resource Optimization**: Capacity planning and utilization analysis
-    
-    ### 🥽 VR Studio (Team Training)
-    - **Simulation Protocols**: Standardized training scenarios
-    - **Performance Metrics**: Objective skill assessment
-    - **Team Coordination**: Multi-disciplinary training support
-    
-    ## Standards Compliance
-    
-    - **ELSO Registry**: Data dictionary aligned with ELSO v3.4 standards
-    - **SMART on FHIR**: Interoperable health data exchange
-    - **FDA Non-Device CDS**: Clinical decision support guidelines
-    - **ISO Standards**: IEC 62304, ISO 14971 compliance
-    
-    ## Guardrails
-    
-    ⚠️ **This system provides explanations and insights, not prescriptive orders.**
-    
-    - All clinical decisions must be made by qualified healthcare professionals
-    - System exposes inputs and logic for complete transparency
-    - No protected health information (PHI) is stored in the repository
-    - All secrets and credentials are managed through environment variables
-    
-    ## Technical Architecture
-    
-    - **Frontend**: Streamlit web application
-    - **Backend**: Python-based analytics engine
-    - **Database**: ELSO-aligned data structure
-    - **Models**: Scikit-learn and XGBoost implementations
-    - **Deployment**: Docker containerization support
-    
-    ## Development Team
-    
-    Taiwan-led international collaboration with contributions from:
-    - Clinical ECMO specialists
-    - Health economics researchers  
-    - Medical device engineers
-    - Health informatics experts
-    
-    ## License
-    
-    Apache License 2.0 - Open source and freely available
-    
-    ## Contact
-    
-    For clinical questions or technical support, please refer to the project repository
-    or contact the development team through official channels.
-    """)
-    
-    # Version info
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    
+    col1, col2 = st.columns([2, 1])
+
     with col1:
-        st.metric("Version", "1.0.0")
-    
-    with col2:
-        st.metric("ELSO Standard", "v3.4")
-    
-    with col3:
-        st.metric("Last Updated", "2024-01-01")
+        st.subheader('ICER Results')
+        display_icer = icer_display.copy()
+        display_icer['total_cost'] = display_icer['total_cost'].round(0).astype(int)
+        display_icer['qaly'] = display_icer['qaly'].round(3)
+        display_icer['incremental_cost'] = display_icer['incremental_cost'].round(0).astype(int)
+        display_icer['incremental_qaly'] = display_icer['incremental_qaly'].round(3)
+        display_icer['icer_vs_baseline'] = display_icer['icer_vs_baseline'].apply(
+            lambda x: f'{x:,.0f}' if np.isfinite(x) else 'Dominated'
+        )
+        st.dataframe(display_icer, use_container_width=True)
 
-if __name__ == "__main__":
-    main()
+    with col2:
+        st.subheader('Interpretation')
+        st.info('''
+        **ICER** measures the incremental cost per additional QALY gained compared to baseline.
+
+        - **Lower ICER**: More cost-effective
+        - **Dominated**: Costs more, produces less benefit
+        - **WTP threshold**: Typically 1-3x GDP per capita (~900k-2.7M TWD/QALY for Taiwan)
+        ''')
+
+    # ICER plot
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    # Filter finite ICERs for plotting
+    finite_icer = icer_display[np.isfinite(icer_display['icer_vs_baseline'])]
+
+    ax.scatter(
+        finite_icer['incremental_qaly'],
+        finite_icer['incremental_cost'],
+        s=100,
+        c=finite_icer['quintile'],
+        cmap='viridis',
+        alpha=0.7,
+        edgecolors='black'
+    )
+
+    # Add WTP threshold lines
+    wtp_thresholds = [900000, 1800000, 2700000]
+    colors = ['green', 'orange', 'red']
+    for wtp, color in zip(wtp_thresholds, colors):
+        qaly_range = np.linspace(0, finite_icer['incremental_qaly'].max(), 100)
+        cost_range = qaly_range * wtp
+        ax.plot(qaly_range, cost_range, '--', color=color, alpha=0.5,
+                label=f'WTP = {wtp/1000:.0f}k TWD/QALY')
+
+    ax.set_xlabel('Incremental QALY')
+    ax.set_ylabel('Incremental Cost (TWD)')
+    ax.set_title('Cost-Effectiveness Plane')
+    ax.legend()
+    ax.grid(alpha=0.3)
+    st.pyplot(fig)
+
+# Tab 3: CEAC
+with tab3:
+    st.header('Cost-Effectiveness Acceptability Curve (CEAC)')
+    st.markdown('**Probability of cost-effectiveness at different WTP thresholds**')
+
+    with st.spinner(f'Running {n_simulations} Monte Carlo simulations...'):
+        wtp_thresholds = np.linspace(0, wtp_max, 50)
+        ceac_data = cea.compute_ceac(
+            quintile_results,
+            wtp_thresholds=wtp_thresholds,
+            n_simulations=int(n_simulations)
+        )
+
+    # CEAC plot
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    for quintile in sorted(ceac_data['quintile'].unique()):
+        qdata = ceac_data[ceac_data['quintile'] == quintile]
+        ax.plot(
+            qdata['wtp_threshold'] / 1000,  # Convert to thousands
+            qdata['probability_cost_effective'],
+            marker='o',
+            label=f'Quintile {quintile}',
+            linewidth=2
+        )
+
+    # Add reference lines
+    ax.axhline(y=0.5, color='gray', linestyle='--', alpha=0.5, label='50% threshold')
+    ax.axvline(x=900, color='green', linestyle=':', alpha=0.5, label='1x GDP/capita')
+    ax.axvline(x=2700, color='red', linestyle=':', alpha=0.5, label='3x GDP/capita')
+
+    ax.set_xlabel('Willingness-to-Pay Threshold (1000s TWD/QALY)')
+    ax.set_ylabel('Probability Cost-Effective')
+    ax.set_title('Cost-Effectiveness Acceptability Curve by Risk Quintile')
+    ax.set_ylim([0, 1])
+    ax.legend(loc='best')
+    ax.grid(alpha=0.3)
+    st.pyplot(fig)
+
+    # Summary table at key WTP thresholds
+    st.subheader('Probability Cost-Effective at Key Thresholds')
+    key_wtp = [500000, 900000, 1500000, 2000000, 3000000]
+    ceac_summary = ceac_data[ceac_data['wtp_threshold'].isin(key_wtp)].pivot(
+        index='quintile',
+        columns='wtp_threshold',
+        values='probability_cost_effective'
+    )
+    ceac_summary.columns = [f'{int(x/1000)}k TWD' for x in ceac_summary.columns]
+    st.dataframe(ceac_summary.style.format('{:.2%}'), use_container_width=True)
+
+# Tab 4: Sensitivity Analysis
+with tab4:
+    st.header('One-Way Sensitivity Analysis')
+    st.markdown('**Impact of parameter variation on CER (Quintile 3)**')
+
+    # Base case from quintile 3
+    q3_data = patient_data[patient_data['risk_quintile'] == 3]
+    base_case = {
+        'icu_los': q3_data['icu_los_days'].mean(),
+        'ward_los': q3_data['ward_los_days'].mean(),
+        'ecmo_days': q3_data['ecmo_days'].mean(),
+        'survival_rate': q3_data['survival_to_discharge'].mean()
+    }
+
+    # Define sensitivity parameters
+    sensitivity_params = {
+        'icu_cost_per_day': (icu_cost * 0.7, icu_cost, icu_cost * 1.3),
+        'ward_cost_per_day': (ward_cost * 0.7, ward_cost, ward_cost * 1.3),
+        'ecmo_daily_consumable': (ecmo_consumable * 0.7, ecmo_consumable, ecmo_consumable * 1.3),
+        'survival_rate': (max(0.2, base_case['survival_rate'] * 0.7),
+                         base_case['survival_rate'],
+                         min(0.9, base_case['survival_rate'] * 1.3))
+    }
+
+    sens_results = cea.sensitivity_analysis(base_case, sensitivity_params)
+
+    # Display results
+    col1, col2 = st.columns([1, 1])
+
+    with col1:
+        st.subheader('Sensitivity Results')
+        display_sens = sens_results.copy()
+        display_sens['total_cost'] = display_sens['total_cost'].round(0).astype(int)
+        display_sens['qaly'] = display_sens['qaly'].round(3)
+        display_sens['cer'] = display_sens['cer'].round(0).astype(int)
+        st.dataframe(display_sens, use_container_width=True)
+
+    with col2:
+        st.subheader('Tornado Diagram')
+
+        # Calculate range for each parameter
+        tornado_data = []
+        for param in sens_results['parameter'].unique():
+            pdata = sens_results[sens_results['parameter'] == param]
+            low_cer = pdata[pdata['scenario'] == 'low']['cer'].values[0]
+            high_cer = pdata[pdata['scenario'] == 'high']['cer'].values[0]
+            base_cer = pdata[pdata['scenario'] == 'base']['cer'].values[0]
+
+            tornado_data.append({
+                'parameter': param,
+                'low_delta': low_cer - base_cer,
+                'high_delta': high_cer - base_cer,
+                'range': abs(high_cer - low_cer)
+            })
+
+        tornado_df = pd.DataFrame(tornado_data).sort_values('range', ascending=True)
+
+        fig, ax = plt.subplots(figsize=(6, 5))
+        y_pos = np.arange(len(tornado_df))
+
+        ax.barh(y_pos, tornado_df['low_delta'], color='steelblue', alpha=0.7, label='Low')
+        ax.barh(y_pos, tornado_df['high_delta'], color='coral', alpha=0.7, label='High')
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(tornado_df['parameter'])
+        ax.set_xlabel('Change in CER (TWD/QALY)')
+        ax.set_title('Parameter Sensitivity')
+        ax.axvline(x=0, color='black', linewidth=0.8)
+        ax.legend()
+        ax.grid(axis='x', alpha=0.3)
+        st.pyplot(fig)
+
+# Tab 5: Export and Reports
+with st.sidebar:
+    st.markdown('---')
+    st.header('Export Options')
+
+    if st.button('📊 Export to Excel'):
+        try:
+            from econ.reporting import CEAReportGenerator
+            reporter = CEAReportGenerator(output_dir='./reports/dashboard')
+            excel_path = reporter.generate_cea_table_excel(
+                quintile_results,
+                icer_results,
+                filename='dashboard_export.xlsx'
+            )
+            st.success(f'Exported to: {excel_path}')
+        except Exception as e:
+            st.error(f'Export failed: {e}')
+
+    if st.button('📄 Generate LaTeX Table'):
+        try:
+            from econ.reporting import CEAReportGenerator
+            reporter = CEAReportGenerator()
+            latex_code = reporter.generate_cea_table_latex(quintile_results, icer_results)
+            st.text_area('LaTeX Code', latex_code, height=300)
+        except Exception as e:
+            st.error(f'Generation failed: {e}')
+
+    if st.button('📝 Generate Executive Summary'):
+        try:
+            from econ.reporting import CEAReportGenerator
+            reporter = CEAReportGenerator(
+                wtp_threshold=wtp_max,
+                currency='TWD'
+            )
+            summary = reporter.generate_executive_summary(
+                quintile_results,
+                icer_results
+            )
+            st.text_area('Executive Summary', summary, height=400)
+        except Exception as e:
+            st.error(f'Generation failed: {e}')
+
+# Footer
+st.markdown('---')
+st.markdown('''
+**Taiwan ECMO CDSS - WP2 Cost-Effectiveness Analysis** (Enhanced Version)
+
+This dashboard provides:
+- **CER** (Cost-Effectiveness Ratio) stratified by risk quintile
+- **ICER** (Incremental Cost-Effectiveness Ratio) vs. lowest risk group
+- **CEAC** (Cost-Effectiveness Acceptability Curve) with probabilistic sensitivity analysis
+- **One-way sensitivity analysis** for key parameters
+- **Export functionality** (Excel, LaTeX, Executive Summary)
+
+**New Features:**
+- Multi-currency support (TWD, USD, EUR)
+- Taiwan NHI reimbursement calculations
+- Probabilistic sensitivity analysis (PSA)
+- Two-way sensitivity analysis
+- Value of information (EVPI) analysis
+- Budget impact analysis
+- Publication-ready exports
+
+All parameters are configurable for local context (Taiwan or other settings).
+Adjust sidebar parameters to explore different scenarios.
+
+**CHEERS 2022 Compliant** | **Taiwan NHI Perspective**
+''')
