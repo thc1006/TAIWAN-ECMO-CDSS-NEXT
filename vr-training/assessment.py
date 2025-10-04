@@ -547,6 +547,9 @@ class PerformanceReporter:
 
     def _generate_html_report(self, perf: ScenarioPerformance) -> str:
         """Generate HTML-formatted performance report."""
+        # Extract interpretation text and convert newlines to HTML breaks
+        interpretation = self._interpret_performance(perf).replace('\n', '<br>')
+
         # Simplified HTML template
         html = f"""
         <html>
@@ -557,7 +560,7 @@ class PerformanceReporter:
         <p><strong>Total Score:</strong> {perf.total_score:.1f}/100</p>
         <p><strong>Decision Accuracy:</strong> {perf.decision_accuracy_pct:.1f}%</p>
         <p><strong>Critical Errors:</strong> {perf.critical_errors}</p>
-        {self._interpret_performance(perf).replace('\n', '<br>')}
+        {interpretation}
         </body>
         </html>
         """
