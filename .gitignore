@@ -98,3 +98,9 @@ node_modules/
 # Large data exports
 exports/
 downloads/
+
+# Project-specific files (local only)
+CLAUDE.md
+claude-flow.cmd
+Sonnet 4.5 Prompt.txt
+prompts/
