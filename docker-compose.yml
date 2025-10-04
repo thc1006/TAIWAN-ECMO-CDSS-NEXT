@@ -118,40 +118,31 @@ services:
       start_period: 30s
     restart: unless-stopped
     command: >
-      gunicorn
-      --bind 0.0.0.0:5000
-      --workers 4
-      --threads 2
-      --timeout 120
-      --access-logfile /app/logs/access.log
-      --error-logfile /app/logs/error.log
-      --log-level info
-      --chdir /app/smart-on-fhir
-      app:app
+      python -u /app/smart-on-fhir/app.py
 
-  # Nginx Reverse Proxy
-  nginx:
-    image: nginx:1.25-alpine
-    container_name: ecmo-nginx
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-      - nginx_cache:/var/cache/nginx
-      - nginx_logs:/var/log/nginx
-    ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
-    networks:
-      - ecmo-network
-    depends_on:
-      - dashboard
-      - smart-app
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    restart: unless-stopped
+  # Nginx Reverse Proxy (Commented out for Windows compatibility)
+  # Uncomment and configure for production deployment
+  # nginx:
+  #   image: nginx:1.25-alpine
+  #   container_name: ecmo-nginx
+  #   volumes:
+  #     - ./nginx:/etc/nginx:ro
+  #     - nginx_cache:/var/cache/nginx
+  #     - nginx_logs:/var/log/nginx
+  #   ports:
+  #     - "${HTTP_PORT:-80}:80"
+  #     - "${HTTPS_PORT:-443}:443"
+  #   networks:
+  #     - ecmo-network
+  #   depends_on:
+  #     - dashboard
+  #     - smart-app
+  #   healthcheck:
+  #     test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   restart: unless-stopped
 
   # Redis Cache (Optional - for production scaling)
   redis:

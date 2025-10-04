@@ -508,5 +508,11 @@ def logout():
     return redirect('/')
 
 
+@app.route('/health')
+def health():
+    """Health check endpoint for Docker."""
+    return jsonify({'status': 'healthy', 'service': 'ecmo-smart-app'}), 200
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
